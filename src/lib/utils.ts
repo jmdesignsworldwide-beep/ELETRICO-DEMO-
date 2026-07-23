@@ -57,14 +57,26 @@ export function formatDateLong(date: string | Date): string {
   }).format(d);
 }
 
-/** Diferencia en días entre una fecha y hoy (negativo = vencida). */
-export function daysUntil(date: string | Date): number {
-  const d = typeof date === "string" ? new Date(date) : date;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(d);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+// RD es UTC-4 fijo (sin horario de verano). Calcular el día calendario en esa
+// zona de forma determinista evita que el servidor (UTC) y el cliente (RD)
+// clasifiquen distinto una fecha cercana a "hoy". Antes, daysUntil usaba
+// setHours() en la zona LOCAL de cada runtime: el servidor (UTC) y el navegador
+// (RD) obtenían medianoches distintas → diferencias de día → distinto DOM en
+// urgencias/badges → fallo de hidratación → pantalla en blanco.
+const RD_OFFSET_MS = 4 * 60 * 60 * 1000;
+function rdDayEpoch(ms: number): number {
+  const shifted = new Date(ms - RD_OFFSET_MS);
+  return Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+}
+
+/** Días entre una fecha y "hoy" en zona RD (negativo = vencida).
+ *  Pasa `nowMs` (calculado en el servidor) para que SSR y cliente coincidan
+ *  exactamente y no haya desajuste de hidratación. */
+export function daysUntil(date: string | Date, nowMs?: number): number {
+  const t = (typeof date === "string" ? new Date(date) : date).getTime();
+  if (Number.isNaN(t)) return 0;
+  const now = typeof nowMs === "number" ? nowMs : Date.now();
+  return Math.round((rdDayEpoch(t) - rdDayEpoch(now)) / 86_400_000);
 }
 
 export const ITBIS_RATE = 0.18;

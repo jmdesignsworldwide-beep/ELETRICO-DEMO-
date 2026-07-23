@@ -19,7 +19,7 @@ import {
   SPECIALTIES, type TechnicianInput,
 } from "@/app/actions/technicians";
 
-export function TecnicoDetalleView({ tech }: { tech: TechnicianDetail }) {
+export function TecnicoDetalleView({ tech, now }: { tech: TechnicianDetail; now: number }) {
   const router = useRouter();
   return (
     <div className="space-y-6">
@@ -36,7 +36,7 @@ export function TecnicoDetalleView({ tech }: { tech: TechnicianDetail }) {
 
         <div className="space-y-6 lg:col-span-2">
           <Reveal delay={0.04}><ProfileForm tech={tech} onDone={() => router.refresh()} /></Reveal>
-          <Reveal delay={0.05}><CertsCard tech={tech} onDone={() => router.refresh()} /></Reveal>
+          <Reveal delay={0.05}><CertsCard tech={tech} now={now} onDone={() => router.refresh()} /></Reveal>
           <Reveal delay={0.06}><WorklogCard tech={tech} onDone={() => router.refresh()} /></Reveal>
           <Reveal delay={0.07}><AssignedOrders tech={tech} /></Reveal>
         </div>
@@ -159,7 +159,7 @@ function ProfileForm({ tech, onDone }: { tech: TechnicianDetail; onDone: () => v
   );
 }
 
-function CertsCard({ tech, onDone }: { tech: TechnicianDetail; onDone: () => void }) {
+function CertsCard({ tech, now, onDone }: { tech: TechnicianDetail; now: number; onDone: () => void }) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [exp, setExp] = useState("");
@@ -187,7 +187,7 @@ function CertsCard({ tech, onDone }: { tech: TechnicianDetail; onDone: () => voi
       ) : (
         <div className="mb-4 space-y-2">
           {tech.certs.map((c) => {
-            const days = c.expiresAt ? daysUntil(c.expiresAt) : null;
+            const days = c.expiresAt ? daysUntil(c.expiresAt, now) : null;
             const expired = days !== null && days < 0;
             const soon = days !== null && days >= 0 && days <= 30;
             return (

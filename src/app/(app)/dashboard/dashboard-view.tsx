@@ -26,21 +26,22 @@ interface Props {
   orders: ServiceOrder[];
   activity: ActivityEvent[];
   inventory: InventoryItem[];
+  now: number;
 }
 
-export function DashboardView({ kpis, orders, activity, inventory }: Props) {
+export function DashboardView({ kpis, orders, activity, inventory, now }: Props) {
   const open = orders.filter((o) => !CLOSED.includes(o.status));
-  const vencidas = open.filter((o) => daysUntil(o.estimatedEndDate) < 0);
-  const hoy = open.filter((o) => daysUntil(o.estimatedEndDate) === 0);
-  const proceso = open.filter((o) => daysUntil(o.estimatedEndDate) > 0);
+  const vencidas = open.filter((o) => daysUntil(o.estimatedEndDate, now) < 0);
+  const hoy = open.filter((o) => daysUntil(o.estimatedEndDate, now) === 0);
+  const proceso = open.filter((o) => daysUntil(o.estimatedEndDate, now) > 0);
   const lowStock = inventory.filter((i) => i.stock <= i.minStock);
 
   return (
     <div className="space-y-8">
       <Reveal>
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-slate-500 dark:text-slate-400" suppressHydrationWarning>
-            {formatDate(new Date())} · Panel de control
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {formatDate(new Date(now))} · Panel de control
           </p>
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Buenas, <span className="text-volt-500">Marien</span> 👋
@@ -90,9 +91,9 @@ export function DashboardView({ kpis, orders, activity, inventory }: Props) {
             </div>
           ) : (
             <Stagger className="space-y-3">
-              {vencidas.map((o) => <UrgencyRow key={o.id} order={o} tone="danger" />)}
-              {hoy.map((o) => <UrgencyRow key={o.id} order={o} tone="warning" />)}
-              {proceso.map((o) => <UrgencyRow key={o.id} order={o} tone="info" />)}
+              {vencidas.map((o) => <UrgencyRow key={o.id} order={o} tone="danger" now={now} />)}
+              {hoy.map((o) => <UrgencyRow key={o.id} order={o} tone="warning" now={now} />)}
+              {proceso.map((o) => <UrgencyRow key={o.id} order={o} tone="info" now={now} />)}
             </Stagger>
           )}
         </div>
@@ -147,8 +148,8 @@ export function DashboardView({ kpis, orders, activity, inventory }: Props) {
   );
 }
 
-function UrgencyRow({ order, tone }: { order: ServiceOrder; tone: "danger" | "warning" | "info" }) {
-  const days = daysUntil(order.estimatedEndDate);
+function UrgencyRow({ order, tone, now }: { order: ServiceOrder; tone: "danger" | "warning" | "info"; now: number }) {
+  const days = daysUntil(order.estimatedEndDate, now);
   const toneMap = {
     danger: { bar: "bg-red-500", ring: "ring-red-500/30", label: `Vencida hace ${Math.abs(days)} día${Math.abs(days) === 1 ? "" : "s"}`, labelColor: "text-red-600 dark:text-red-400", pulse: "animate-pulse-danger" },
     warning: { bar: "bg-amber-500", ring: "ring-amber-500/30", label: "Vence hoy", labelColor: "text-amber-600 dark:text-amber-400", pulse: "" },

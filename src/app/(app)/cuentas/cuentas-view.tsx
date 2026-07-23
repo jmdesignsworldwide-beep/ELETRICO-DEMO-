@@ -101,7 +101,7 @@ function CreateCard() {
             <input type="number" min={1} max={3650} value={days ?? 1} onChange={(e) => setDays(Math.max(1, Number(e.target.value)))} className="w-24 rounded-lg border border-slate-200 bg-white/70 px-2.5 py-2 text-sm tabular-nums outline-none focus:border-volt-400 dark:border-white/10 dark:bg-white/[0.04]" />
           )}
         </div>
-        {days !== null && <p className="mt-2 text-xs text-slate-400">Vence el {formatDate(new Date(Date.now() + days * 86_400_000))}</p>}
+        {days !== null && <p className="mt-2 text-xs text-slate-400" suppressHydrationWarning>Vence el {formatDate(new Date(Date.now() + days * 86_400_000))}</p>}
       </div>
 
       {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -149,7 +149,7 @@ function AccountRow({ account: a }: { account: DemoAccountRow }) {
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-400">Restante</p>
-          <p className={cn("flex items-center gap-1 font-semibold tabular-nums", a.status === "expirada" || a.status === "revocada" ? "text-red-500" : a.status === "por_vencer" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+          <p className={cn("flex items-center gap-1 font-semibold tabular-nums", a.status === "expirada" || a.status === "revocada" ? "text-red-500" : a.status === "por_vencer" ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")} suppressHydrationWarning>
             <Clock className="h-3.5 w-3.5" />{countdown}
           </p>
         </div>
