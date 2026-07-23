@@ -17,9 +17,9 @@ import { registerMaterialAction, closeOrderAction, convertOrderToInvoiceAction }
 
 const CLOSED = ["completada", "facturada", "pagada", "cancelada"];
 
-export function OrdenDetalleView({ order, inventory }: { order: OrderDetail; inventory: InventoryItem[] }) {
+export function OrdenDetalleView({ order, inventory, now }: { order: OrderDetail; inventory: InventoryItem[]; now: number }) {
   const router = useRouter();
-  const days = daysUntil(order.estimatedEndDate);
+  const days = daysUntil(order.estimatedEndDate, now);
   const overdue = days < 0 && !CLOSED.includes(order.status);
   const materialsTotal = order.materials.reduce((s, m) => s + m.qtyUsed * m.unitPrice, 0);
   const canInvoice = order.status === "completada" && !order.invoiceId;

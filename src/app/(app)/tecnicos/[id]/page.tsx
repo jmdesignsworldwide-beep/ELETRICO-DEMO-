@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function TecnicoPage({ params }: { params: { id: string } }) {
   const tech = await getTechnician(params.id);
   if (!tech) notFound();
-  return <TecnicoDetalleView tech={tech} />;
+  return <TecnicoDetalleView tech={tech} now={Date.now()} />;
 }

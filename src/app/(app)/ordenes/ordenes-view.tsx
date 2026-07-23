@@ -27,7 +27,7 @@ const ALL_STATUSES: OrderStatus[] = [
   "esperando_aprobacion", "completada", "facturada", "pagada", "cancelada",
 ];
 
-export function OrdenesView({ orders, clients, technicians }: { orders: ServiceOrder[]; clients: Client[]; technicians: Technician[] }) {
+export function OrdenesView({ orders, clients, technicians, now }: { orders: ServiceOrder[]; clients: Client[]; technicians: Technician[]; now: number }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("abiertas");
   const [modalOpen, setModalOpen] = useState(false);
   const params = useSearchParams();
@@ -40,7 +40,7 @@ export function OrdenesView({ orders, clients, technicians }: { orders: ServiceO
   });
 
   const openCount = orders.filter((o) => !CLOSED.includes(o.status)).length;
-  const overdueCount = orders.filter((o) => daysUntil(o.estimatedEndDate) < 0 && !CLOSED.includes(o.status)).length;
+  const overdueCount = orders.filter((o) => daysUntil(o.estimatedEndDate, now) < 0 && !CLOSED.includes(o.status)).length;
 
   return (
     <div className="space-y-6">
@@ -86,17 +86,17 @@ export function OrdenesView({ orders, clients, technicians }: { orders: ServiceO
         </div>
       ) : (
         <Stagger className="space-y-3">
-          {filtered.map((o) => <OrderRow key={o.id} order={o} />)}
+          {filtered.map((o) => <OrderRow key={o.id} order={o} now={now} />)}
         </Stagger>
       )}
     </div>
   );
 }
 
-function OrderRow({ order: o }: { order: ServiceOrder }) {
+function OrderRow({ order: o, now }: { order: ServiceOrder; now: number }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const days = daysUntil(o.estimatedEndDate);
+  const days = daysUntil(o.estimatedEndDate, now);
   const overdue = days < 0 && !CLOSED.includes(o.status);
 
   function changeStatus(status: string) {

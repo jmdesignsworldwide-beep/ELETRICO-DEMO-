@@ -9,5 +9,5 @@ export default async function OrdenesPage() {
     getClients(),
     getTechnicians(),
   ]);
-  return <OrdenesView orders={orders} clients={clients} technicians={technicians} />;
+  return <OrdenesView orders={orders} clients={clients} technicians={technicians} now={Date.now()} />;
 }
