@@ -1,12 +1,15 @@
 "use client";
 
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, FileText, Share2, ArrowRightCircle } from "lucide-react";
+import { Plus, FileText, Share2, ArrowRightCircle, Loader2 } from "lucide-react";
 import { Stagger, StaggerItem, Reveal } from "@/components/ui/reveal";
 import { Badge } from "@/components/ui/badge";
 import { quoteStatusLabel, quoteStatusStyle } from "@/lib/labels";
 import { formatRD, formatDate } from "@/lib/utils";
 import type { Quote } from "@/lib/types";
+import { convertQuoteToOrderAction } from "@/app/actions/quotes";
 
 export function CotizacionesView({ quotes }: { quotes: Quote[] }) {
   const approved = quotes.filter((q) => q.status === "aprobada").length;
@@ -38,41 +41,65 @@ export function CotizacionesView({ quotes }: { quotes: Quote[] }) {
         <Stagger className="space-y-3">
           {quotes.map((q) => (
             <StaggerItem key={q.id}>
-              <motion.div
-                whileHover={{ y: -2 }}
-                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                className="glass-card p-4 transition-shadow hover:shadow-card-light-hover sm:p-5"
-              >
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-volt-500/10 ring-1 ring-inset ring-volt-500/20">
-                    <FileText className="h-5 w-5 text-volt-500" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-slate-400">{q.number}</span>
-                      <Badge className={quoteStatusStyle[q.status]}>{quoteStatusLabel[q.status]}</Badge>
-                    </div>
-                    <h3 className="mt-0.5 truncate font-semibold">{q.clientName}</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Emitida {formatDate(q.createdAt)} · Válida hasta {formatDate(q.validUntil)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold tabular-nums text-volt-600 dark:text-volt-400">{formatRD(q.total)}</p>
-                    <p className="text-xs text-slate-400">ITBIS {formatRD(q.itbis, { decimals: false })}</p>
-                  </div>
-                  <div className="flex w-full items-center gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06] sm:w-auto sm:border-0 sm:pt-0">
-                    <button className="btn-ghost flex-1 px-3 py-2 text-xs sm:flex-none"><Share2 className="h-3.5 w-3.5" />WhatsApp</button>
-                    {q.status === "aprobada" && (
-                      <button className="btn-primary flex-1 px-3 py-2 text-xs sm:flex-none"><ArrowRightCircle className="h-3.5 w-3.5" />A orden</button>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
+              <QuoteRow quote={q} />
             </StaggerItem>
           ))}
         </Stagger>
       )}
     </div>
+  );
+}
+
+function QuoteRow({ quote: q }: { quote: Quote }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function toOrder() {
+    setError(null);
+    startTransition(async () => {
+      const res = await convertQuoteToOrderAction(q.id);
+      if (!res.ok) { setError(res.error ?? "No se pudo convertir."); return; }
+      if (res.orderId) router.push(`/ordenes/${res.orderId}`);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <motion.div
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className="glass-card p-4 transition-shadow hover:shadow-card-light-hover sm:p-5"
+    >
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-volt-500/10 ring-1 ring-inset ring-volt-500/20">
+          <FileText className="h-5 w-5 text-volt-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-semibold text-slate-400">{q.number}</span>
+            <Badge className={quoteStatusStyle[q.status]}>{quoteStatusLabel[q.status]}</Badge>
+          </div>
+          <h3 className="mt-0.5 truncate font-semibold">{q.clientName}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Emitida {formatDate(q.createdAt)} · Válida hasta {formatDate(q.validUntil)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-bold tabular-nums text-volt-600 dark:text-volt-400">{formatRD(q.total)}</p>
+          <p className="text-xs text-slate-400">ITBIS {formatRD(q.itbis, { decimals: false })}</p>
+        </div>
+        <div className="flex w-full items-center gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06] sm:w-auto sm:border-0 sm:pt-0">
+          <button className="btn-ghost flex-1 px-3 py-2 text-xs sm:flex-none"><Share2 className="h-3.5 w-3.5" />WhatsApp</button>
+          {q.status === "aprobada" && (
+            <button onClick={toOrder} disabled={pending} className="btn-primary flex-1 px-3 py-2 text-xs sm:flex-none">
+              {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightCircle className="h-3.5 w-3.5" />}
+              A orden
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </motion.div>
   );
 }

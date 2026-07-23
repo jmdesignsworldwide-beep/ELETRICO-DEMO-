@@ -84,6 +84,48 @@ export async function getServiceOrders(): Promise<ServiceOrder[]> {
   }));
 }
 
+export async function getOrder(id: string): Promise<import("./types").OrderDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const [{ data: o }, { data: mats }, { data: techs }] = await Promise.all([
+    supabase.from("service_orders").select("*, clients(name)").eq("id", id).single(),
+    supabase.from("order_materials").select("*").eq("order_id", id),
+    supabase.from("technicians").select("id, name"),
+  ]);
+  if (!o) return null;
+  const techMap = new Map((techs ?? []).map((t) => [t.id, t.name]));
+  return {
+    id: o.id,
+    number: o.number,
+    clientId: o.client_id,
+    clientName: (o.clients as { name: string } | null)?.name ?? "Cliente",
+    serviceType: o.service_type,
+    status: o.status,
+    priority: o.priority,
+    technicianIds: o.technician_ids ?? [],
+    technicianNames: (o.technician_ids ?? []).map((tid: string) => techMap.get(tid) ?? "").filter(Boolean),
+    scheduledDate: o.scheduled_date,
+    estimatedEndDate: o.estimated_end_date,
+    description: o.description ?? "",
+    address: o.address ?? "",
+    total: Number(o.total ?? 0),
+    createdAt: o.created_at,
+    finalNotes: o.final_notes ?? undefined,
+    recommendations: o.recommendations ?? undefined,
+    closedAt: o.closed_at ?? undefined,
+    quoteId: o.quote_id ?? undefined,
+    invoiceId: o.invoice_id ?? undefined,
+    materials: (mats ?? []).map((m) => ({
+      id: m.id,
+      inventoryId: m.inventory_id,
+      name: m.name,
+      qtyEstimated: m.qty_estimated ?? 0,
+      qtyUsed: m.qty_used ?? 0,
+      unitPrice: Number(m.unit_price ?? 0),
+    })),
+  };
+}
+
 export async function getInventory(): Promise<InventoryItem[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServerSupabase();

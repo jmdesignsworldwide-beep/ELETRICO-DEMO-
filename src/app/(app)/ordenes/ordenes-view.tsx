@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { Plus, User, Calendar, MapPin, Loader2 } from "lucide-react";
+import { Plus, User, Calendar, MapPin, Loader2, ChevronRight } from "lucide-react";
 import { Stagger, StaggerItem, Reveal } from "@/components/ui/reveal";
 import { Badge } from "@/components/ui/badge";
 import { orderStatusLabel, serviceTypeLabel, priorityLabel, priorityStyle } from "@/lib/labels";
@@ -106,7 +107,7 @@ function OrderRow({ order: o }: { order: ServiceOrder }) {
         className="glass-card p-4 transition-shadow hover:shadow-card-light-hover sm:p-5"
       >
         <div className="flex items-start gap-4">
-          <div className="min-w-0 flex-1">
+          <Link href={`/ordenes/${o.id}`} className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs font-semibold text-slate-400">{o.number}</span>
               <Badge className={priorityStyle[o.priority]}>{priorityLabel[o.priority]}</Badge>
@@ -122,8 +123,9 @@ function OrderRow({ order: o }: { order: ServiceOrder }) {
               <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{formatDate(o.scheduledDate)}</span>
               <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /><span className="line-clamp-1 max-w-[180px]">{o.address}</span></span>
             </div>
-          </div>
+          </Link>
           <div className="flex shrink-0 flex-col items-end gap-2">
+            <Link href={`/ordenes/${o.id}`} className="text-slate-300 hover:text-volt-500 dark:text-slate-600"><ChevronRight className="h-4 w-4" /></Link>
             {o.total > 0 && (
               <span className="font-semibold tabular-nums text-volt-600 dark:text-volt-400">{formatRD(o.total, { decimals: false })}</span>
             )}

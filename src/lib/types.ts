@@ -75,6 +75,24 @@ export interface ServiceOrder {
   createdAt: string;
 }
 
+export interface OrderMaterial {
+  id: string;
+  inventoryId: string;
+  name: string;
+  qtyEstimated: number;
+  qtyUsed: number;
+  unitPrice: number;
+}
+
+export interface OrderDetail extends ServiceOrder {
+  finalNotes?: string;
+  recommendations?: string;
+  closedAt?: string;
+  quoteId?: string;
+  invoiceId?: string;
+  materials: OrderMaterial[];
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
