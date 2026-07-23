@@ -1,10 +1,6 @@
 import "server-only";
 
-// Rate limiting del lado del servidor, por usuario.
-// Implementación en memoria (suficiente para el demo). En producción con
-// múltiples instancias: respaldar con Supabase/Redis.
-
-const buckets = new Map<string, { count: number; resetAt: number }>();
+import { createServerSupabase, isSupabaseConfigured } from "./supabase/server";
 
 interface RateLimitOptions {
   /** Máximo de operaciones dentro de la ventana. */
@@ -14,24 +10,32 @@ interface RateLimitOptions {
 }
 
 /**
- * Lanza si el usuario excede el límite. Llamar dentro de server actions
- * después de requireActiveUser().
+ * Rate limiting DURABLE, por usuario, validado en la base de datos.
+ * (Un limitador en memoria no sirve en serverless — se reinicia por instancia.)
+ * La RPC rl_check namespacea el bucket por auth.uid(), así un usuario no puede
+ * consumir el presupuesto de otro. Lanza si se excede.
+ *
+ * Fail-open ante error de infraestructura: un fallo del limitador no debe
+ * tumbar la app, pero en operación normal el límite se aplica.
  */
-export function enforceRateLimit(
+export async function enforceRateLimit(
   key: string,
   { limit = 20, windowMs = 60_000 }: RateLimitOptions = {}
-): void {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-
-  if (!bucket || now > bucket.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return;
+): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  try {
+    const supabase = createServerSupabase();
+    const { data, error } = await supabase.rpc("rl_check", {
+      p_key: key,
+      p_limit: limit,
+      p_window: Math.ceil(windowMs / 1000),
+    });
+    if (error) return; // fail-open ante error de infraestructura
+    if (data === false) {
+      throw new Error("Demasiadas solicitudes. Intenta de nuevo en un momento.");
+    }
+  } catch (e) {
+    // Re-lanzar solo el error de límite; tragar fallos de infraestructura.
+    if (e instanceof Error && e.message.startsWith("Demasiadas solicitudes")) throw e;
   }
-
-  if (bucket.count >= limit) {
-    throw new Error("Demasiadas solicitudes. Intenta de nuevo en un momento.");
-  }
-
-  bucket.count += 1;
 }

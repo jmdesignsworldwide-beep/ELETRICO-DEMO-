@@ -603,6 +603,7 @@ export async function getRecurringExpenses(): Promise<import("./types").Recurrin
 export interface SessionContext {
   userId: string;
   fullName: string;
+  role: "admin" | "tecnico";
   isOwner: boolean;
   demo: { active: boolean; expiresAt: string | null; daysRemaining: number | null; expired: boolean } | null;
 }
@@ -613,7 +614,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: profile } = await supabase
-    .from("profiles").select("full_name, is_owner, active").eq("id", user.id).maybeSingle();
+    .from("profiles").select("full_name, role, is_owner, active").eq("id", user.id).maybeSingle();
   if (!profile || !profile.active) return null;
 
   let demo: SessionContext["demo"] = null;
@@ -628,7 +629,20 @@ export async function getSessionContext(): Promise<SessionContext | null> {
       demo = { active: d.active, expiresAt: d.expires_at, daysRemaining, expired };
     }
   }
-  return { userId: user.id, fullName: profile.full_name, isOwner: Boolean(profile.is_owner), demo };
+  return { userId: user.id, fullName: profile.full_name, role: profile.role, isOwner: Boolean(profile.is_owner), demo };
+}
+
+/**
+ * Redirige a /dashboard si el usuario autenticado NO es admin (p. ej. un técnico
+ * forzando la URL a Finanzas/Caja/Suplidores). Defensa server-side adicional a RLS.
+ * Si no hay sesión/config (preview sin auth), no redirige.
+ */
+export async function guardAdminRoute(): Promise<void> {
+  const ctx = await getSessionContext();
+  if (ctx && ctx.role !== "admin") {
+    const { redirect } = await import("next/navigation");
+    redirect("/dashboard");
+  }
 }
 
 export interface DemoAccountRow {

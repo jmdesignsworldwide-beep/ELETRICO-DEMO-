@@ -50,7 +50,7 @@ function sanitize(input: ClientInput) {
 export async function createClientAction(input: ClientInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`client:create:${user.id}`);
+    await enforceRateLimit(`client:create:${user.id}`);
     const err = validate(input);
     if (err) return { ok: false, error: err };
 
@@ -76,7 +76,7 @@ export async function createClientAction(input: ClientInput): Promise<ActionResu
 export async function updateClientAction(id: string, input: ClientInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`client:update:${user.id}`);
+    await enforceRateLimit(`client:update:${user.id}`);
     if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "ID inválido." };
     const err = validate(input);
     if (err) return { ok: false, error: err };
@@ -95,7 +95,7 @@ export async function updateClientAction(id: string, input: ClientInput): Promis
 export async function deleteClientAction(id: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`client:delete:${user.id}`);
+    await enforceRateLimit(`client:delete:${user.id}`);
     if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "ID inválido." };
 
     const supabase = createServerSupabase();

@@ -26,7 +26,7 @@ export interface WorkInput {
 export async function createWorkAction(input: WorkInput): Promise<ActionResult & { id?: string }> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`work:create:${user.id}`);
+    await enforceRateLimit(`work:create:${user.id}`);
     if (!input.title || input.title.trim().length < 2) return { ok: false, error: "El título es obligatorio." };
     if (!CATEGORIES.includes(input.category as (typeof CATEGORIES)[number])) return { ok: false, error: "Categoría inválida." };
 
@@ -47,7 +47,7 @@ export async function createWorkAction(input: WorkInput): Promise<ActionResult &
 export async function updateWorkAction(id: string, input: WorkInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`work:update:${user.id}`);
+    await enforceRateLimit(`work:update:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (!input.title || input.title.trim().length < 2) return { ok: false, error: "El título es obligatorio." };
     if (!CATEGORIES.includes(input.category as (typeof CATEGORIES)[number])) return { ok: false, error: "Categoría inválida." };
@@ -68,7 +68,7 @@ export async function updateWorkAction(id: string, input: WorkInput): Promise<Ac
 export async function toggleWorkFlagAction(id: string, flag: "favorite" | "visible", value: boolean): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`work:flag:${user.id}`);
+    await enforceRateLimit(`work:flag:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("portfolio_works").update({ [flag]: Boolean(value) }).eq("id", id);
@@ -84,7 +84,7 @@ export async function toggleWorkFlagAction(id: string, flag: "favorite" | "visib
 export async function deleteWorkAction(id: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`work:delete:${user.id}`);
+    await enforceRateLimit(`work:delete:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("portfolio_works").delete().eq("id", id);
@@ -99,7 +99,7 @@ export async function deleteWorkAction(id: string): Promise<ActionResult> {
 export async function uploadWorkPhotoAction(id: string, kind: "before" | "after", formData: FormData): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`work:photo:${user.id}`);
+    await enforceRateLimit(`work:photo:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (kind !== "before" && kind !== "after") return { ok: false, error: "Tipo inválido." };
     const file = formData.get("file");

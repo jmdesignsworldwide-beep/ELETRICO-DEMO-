@@ -17,7 +17,7 @@ export interface QuoteConvertResult {
 export async function convertQuoteToOrderAction(quoteId: string): Promise<QuoteConvertResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`quote:convert:${user.id}`);
+    await enforceRateLimit(`quote:convert:${user.id}`);
     if (!UUID.test(quoteId)) return { ok: false, error: "ID inválido." };
 
     const supabase = createServerSupabase();

@@ -21,7 +21,7 @@ export async function signInAction(username: string, password: string): Promise<
   try {
     if (!isSupabaseConfigured()) return { ok: false, error: "Autenticación no configurada." };
     if (!username || !password) return { ok: false, error: "Usuario y contraseña requeridos." };
-    enforceRateLimit(`login:${username.trim().toLowerCase()}`, { limit: 8, windowMs: 60_000 });
+    await enforceRateLimit(`login:${username.trim().toLowerCase()}`, { limit: 8, windowMs: 60_000 });
 
     const supabase = createServerSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({
