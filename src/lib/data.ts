@@ -187,6 +187,58 @@ export async function getInvoices(): Promise<Invoice[]> {
   }));
 }
 
+export async function getInvoice(id: string): Promise<import("./types").InvoiceDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: f } = await supabase
+    .from("invoices")
+    .select("*, clients(name, phone, address), service_orders!invoices_order_id_fkey(number)")
+    .eq("id", id)
+    .single();
+  if (!f) return null;
+  const [{ data: items }, { data: pays }] = await Promise.all([
+    supabase.from("invoice_items").select("*").eq("invoice_id", id).order("sort"),
+    supabase.from("payments").select("*").eq("invoice_id", id).order("created_at"),
+  ]);
+  const client = f.clients as { name: string; phone: string; address: string } | null;
+  const order = f.service_orders as { number: string } | null;
+  return {
+    id: f.id,
+    number: f.number,
+    ncf: f.ncf,
+    clientId: f.client_id,
+    clientName: client?.name ?? "Cliente",
+    clientPhone: client?.phone ?? undefined,
+    clientAddress: client?.address ?? undefined,
+    orderNumber: order?.number ?? undefined,
+    status: f.status,
+    subtotal: Number(f.subtotal ?? 0),
+    itbis: Number(f.itbis ?? 0),
+    total: Number(f.total ?? 0),
+    paymentMethod: f.payment_method ?? undefined,
+    createdAt: f.created_at,
+    paidAt: f.paid_at ?? undefined,
+    voidReason: f.void_reason ?? undefined,
+    voidedAt: f.voided_at ?? undefined,
+    items: (items ?? []).map((i) => ({
+      id: i.id,
+      description: i.description,
+      qty: Number(i.qty ?? 1),
+      unitPrice: Number(i.unit_price ?? 0),
+      lineTotal: Number(i.line_total ?? 0),
+    })),
+    payments: (pays ?? []).map((p) => ({
+      id: p.id,
+      method: p.method,
+      amount: Number(p.amount ?? 0),
+      voucher: p.voucher ?? undefined,
+      received: p.received != null ? Number(p.received) : undefined,
+      changeGiven: p.change_given != null ? Number(p.change_given) : undefined,
+      createdAt: p.created_at,
+    })),
+  };
+}
+
 export async function getActivityFeed(): Promise<ActivityEvent[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServerSupabase();

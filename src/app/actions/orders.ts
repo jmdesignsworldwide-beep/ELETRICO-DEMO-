@@ -261,6 +261,37 @@ export async function convertOrderToInvoiceAction(
       .single();
     if (error || !inv) return { ok: false, error: "No se pudo generar la factura." };
 
+    // Líneas de factura: materiales usados + una línea de servicio/mano de obra.
+    const { data: mats } = await supabase
+      .from("order_materials")
+      .select("name, qty_used, unit_price")
+      .eq("order_id", orderId);
+    const matLines = (mats ?? []).filter((m) => (m.qty_used ?? 0) > 0);
+    const matSubtotal = matLines.reduce(
+      (s, m) => s + Number(m.qty_used) * Number(m.unit_price),
+      0
+    );
+    const items: Record<string, unknown>[] = matLines.map((m, i) => ({
+      invoice_id: inv.id,
+      description: m.name,
+      qty: m.qty_used,
+      unit_price: m.unit_price,
+      line_total: Number(m.qty_used) * Number(m.unit_price),
+      sort: i + 1,
+    }));
+    const serviceAmount = Math.max(subtotal - matSubtotal, 0);
+    if (serviceAmount > 0 || items.length === 0) {
+      items.unshift({
+        invoice_id: inv.id,
+        description: "Servicio / mano de obra",
+        qty: 1,
+        unit_price: serviceAmount,
+        line_total: serviceAmount,
+        sort: 0,
+      });
+    }
+    await supabase.from("invoice_items").insert(items);
+
     await supabase
       .from("service_orders")
       .update({ status: "facturada", invoice_id: inv.id })

@@ -133,6 +133,35 @@ export interface Invoice {
   createdAt: string;
 }
 
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface Payment {
+  id: string;
+  method: string;
+  amount: number;
+  voucher?: string;
+  received?: number;
+  changeGiven?: number;
+  createdAt: string;
+}
+
+export interface InvoiceDetail extends Invoice {
+  clientPhone?: string;
+  clientAddress?: string;
+  orderNumber?: string;
+  paidAt?: string;
+  voidReason?: string;
+  voidedAt?: string;
+  items: InvoiceItem[];
+  payments: Payment[];
+}
+
 export interface ActivityEvent {
   id: string;
   type: "orden" | "cliente" | "cotizacion" | "factura" | "pago" | "inventario";
