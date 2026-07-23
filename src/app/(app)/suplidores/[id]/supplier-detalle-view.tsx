@@ -129,7 +129,7 @@ function EditForm({ supplier, onDone }: { supplier: SupplierDetail; onDone: () =
         {confirmDel && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setConfirmDel(false)} className="fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 m-auto h-fit max-h-[92vh] w-[90vw] max-w-sm overflow-y-auto">
               <div className="glass-card p-6 text-center">
                 <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-red-500/10 text-red-500"><Trash2 className="h-6 w-6" /></div>
                 <h3 className="font-semibold">¿Eliminar “{supplier.name}”?</h3>

@@ -31,7 +31,7 @@ export async function createPurchaseOrderAction(
 ): Promise<ActionResult & { poId?: string }> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`po:create:${user.id}`);
+    await enforceRateLimit(`po:create:${user.id}`);
     if (!UUID.test(supplierId)) return { ok: false, error: "Suplidor inválido." };
     const clean = (items ?? []).filter((i) => UUID.test(i.inventoryId) && Number(i.qty) > 0);
     if (clean.length === 0) return { ok: false, error: "Agrega al menos un material." };
@@ -72,7 +72,7 @@ export async function createPurchaseOrderAction(
 export async function updatePurchaseOrderStatusAction(id: string, status: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`po:status:${user.id}`);
+    await enforceRateLimit(`po:status:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (!EDIT_STATUSES.includes(status as (typeof EDIT_STATUSES)[number]))
       return { ok: false, error: "Estado inválido." };
@@ -97,7 +97,7 @@ export async function receivePurchaseOrderAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`po:receive:${user.id}`);
+    await enforceRateLimit(`po:receive:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
 
     const supabase = createServerSupabase();

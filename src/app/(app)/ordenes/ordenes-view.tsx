@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Plus, User, Calendar, MapPin, Loader2, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, User, Calendar, MapPin, Loader2, ChevronRight, X } from "lucide-react";
 import { Stagger, StaggerItem, Reveal } from "@/components/ui/reveal";
 import { Badge } from "@/components/ui/badge";
 import { orderStatusLabel, serviceTypeLabel, priorityLabel, priorityStyle } from "@/lib/labels";
 import { formatRD, formatDate, daysUntil, cn } from "@/lib/utils";
-import type { OrderStatus, ServiceOrder } from "@/lib/types";
-import { updateOrderStatusAction } from "@/app/actions/orders";
+import type { OrderStatus, ServiceOrder, ServiceType, Priority, Client, Technician } from "@/lib/types";
+import { updateOrderStatusAction, createOrderAction, type OrderInput } from "@/app/actions/orders";
 
 const tabs: { key: OrderStatus | "todas" | "abiertas"; label: string }[] = [
   { key: "abiertas", label: "Abiertas" },
@@ -27,8 +27,11 @@ const ALL_STATUSES: OrderStatus[] = [
   "esperando_aprobacion", "completada", "facturada", "pagada", "cancelada",
 ];
 
-export function OrdenesView({ orders }: { orders: ServiceOrder[] }) {
+export function OrdenesView({ orders, clients, technicians }: { orders: ServiceOrder[]; clients: Client[]; technicians: Technician[] }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("abiertas");
+  const [modalOpen, setModalOpen] = useState(false);
+  const params = useSearchParams();
+  useEffect(() => { if (params.get("new") === "1") setModalOpen(true); }, [params]);
 
   const filtered = orders.filter((o) => {
     if (tab === "todas") return true;
@@ -49,12 +52,16 @@ export function OrdenesView({ orders }: { orders: ServiceOrder[] }) {
             </p>
             <h2 className="text-2xl font-bold tracking-tight">Órdenes de servicio</h2>
           </div>
-          <button className="btn-primary">
+          <button onClick={() => setModalOpen(true)} className="btn-primary">
             <Plus className="h-4 w-4" />
             Nueva orden
           </button>
         </div>
       </Reveal>
+
+      <AnimatePresence>
+        {modalOpen && <NuevaOrdenModal clients={clients} technicians={technicians} onClose={() => setModalOpen(false)} />}
+      </AnimatePresence>
 
       <Reveal delay={0.04}>
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -147,5 +154,91 @@ function OrderRow({ order: o }: { order: ServiceOrder }) {
         </div>
       </motion.div>
     </StaggerItem>
+  );
+}
+
+function NuevaOrdenModal({ clients, technicians, onClose }: { clients: Client[]; technicians: Technician[]; onClose: () => void }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState<OrderInput>({
+    clientId: clients[0]?.id ?? "", serviceType: "instalacion_nueva", priority: "normal",
+    scheduledDate: today, estimatedEndDate: today, description: "", address: "", total: 0, technicianIds: [],
+  });
+  const field = "w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2.5 text-sm outline-none focus:border-volt-400 focus:ring-2 focus:ring-volt-500/25 dark:border-white/10 dark:bg-white/[0.04]";
+  const toggleTech = (id: string) => setForm((f) => ({ ...f, technicianIds: f.technicianIds?.includes(id) ? f.technicianIds.filter((x) => x !== id) : [...(f.technicianIds ?? []), id] }));
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault(); setError(null);
+    startTransition(async () => {
+      const res = await createOrderAction({
+        ...form,
+        scheduledDate: new Date(form.scheduledDate).toISOString(),
+        estimatedEndDate: new Date(form.estimatedEndDate).toISOString(),
+      });
+      if (!res.ok) { setError(res.error ?? "No se pudo crear."); return; }
+      router.refresh(); onClose();
+    });
+  }
+
+  return (
+    <>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-sm" />
+      <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 24, scale: 0.97 }} transition={{ type: "spring", stiffness: 320, damping: 30 }} className="fixed inset-0 z-50 m-auto h-fit max-h-[92vh] w-[92vw] max-w-lg overflow-y-auto">
+        <form onSubmit={submit} className="glass-card max-h-[88vh] overflow-y-auto p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Nueva orden de servicio</h3>
+            <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"><X className="h-5 w-5" /></button>
+          </div>
+          {clients.length === 0 ? (
+            <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">Primero crea un cliente.</p>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs text-slate-400">Cliente *</label>
+                <select className={field} value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })}>
+                  {clients.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Tipo de servicio</label>
+                  <select className={field} value={form.serviceType} onChange={(e) => setForm({ ...form, serviceType: e.target.value as ServiceType })}>
+                    {(Object.keys(serviceTypeLabel) as ServiceType[]).map((s) => (<option key={s} value={s}>{serviceTypeLabel[s]}</option>))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-slate-400">Prioridad</label>
+                  <select className={field} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Priority })}>
+                    {(["normal", "urgente", "emergencia"] as Priority[]).map((p) => (<option key={p} value={p}>{priorityLabel[p]}</option>))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="mb-1 block text-xs text-slate-400">Fecha programada</label><input type="date" className={field} value={form.scheduledDate.slice(0, 10)} onChange={(e) => setForm({ ...form, scheduledDate: e.target.value })} /></div>
+                <div><label className="mb-1 block text-xs text-slate-400">Fecha estimada fin</label><input type="date" className={field} value={form.estimatedEndDate.slice(0, 10)} onChange={(e) => setForm({ ...form, estimatedEndDate: e.target.value })} /></div>
+              </div>
+              <input placeholder="Dirección" className={field} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              <textarea rows={2} placeholder="Descripción del trabajo" className={field} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <div><label className="mb-1 block text-xs text-slate-400">Monto estimado (RD$)</label><input type="number" min={0} className={field} value={form.total || ""} onChange={(e) => setForm({ ...form, total: Number(e.target.value) })} /></div>
+              <div>
+                <label className="mb-1.5 block text-xs text-slate-400">Asignar técnicos</label>
+                <div className="flex flex-wrap gap-2">
+                  {technicians.map((t) => (
+                    <button type="button" key={t.id} onClick={() => toggleTech(t.id)} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-medium", form.technicianIds?.includes(t.id) ? "bg-volt-500 text-ink-950" : "border border-slate-200 text-slate-500 dark:border-white/10 dark:text-slate-400")}>{t.name}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="btn-ghost">Cancelar</button>
+            <button type="submit" disabled={pending || clients.length === 0} className="btn-primary">{pending && <Loader2 className="h-4 w-4 animate-spin" />}{pending ? "Creando…" : "Crear orden"}</button>
+          </div>
+        </form>
+      </motion.div>
+    </>
   );
 }

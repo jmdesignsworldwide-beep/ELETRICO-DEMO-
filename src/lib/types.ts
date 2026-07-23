@@ -43,9 +43,35 @@ export interface Client {
   panelType?: string;
   voltage?: string;
   notes?: string;
+  breakerPrincipal?: string;
+  contactoAlterno?: string;
+  direccionReferencia?: string;
+  problemasConocidos?: string;
+  historialInstalaciones?: string;
   totalSpent: number;
   serviceCount: number;
   createdAt: string;
+}
+
+export interface ClientDetail extends Client {
+  orders: { id: string; number: string; serviceType: string; status: string; total: number; scheduledDate: string }[];
+  invoices: { id: string; number: string; status: string; total: number; createdAt: string }[];
+}
+
+export interface QuoteItem {
+  id: string;
+  kind: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  lineTotal: number;
+  inventoryId?: string;
+}
+
+export interface QuoteDetail extends Quote {
+  clientPhone?: string;
+  clientAddress?: string;
+  items: QuoteItem[];
 }
 
 export interface Technician {
@@ -150,6 +176,7 @@ export interface Quote {
   number: string;
   clientId: string;
   clientName: string;
+  clientPhone?: string;
   status: QuoteStatus;
   subtotal: number;
   discount: number;

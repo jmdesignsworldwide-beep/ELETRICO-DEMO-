@@ -28,7 +28,7 @@ export async function createDemoAccountAction(
 ): Promise<ActionResult> {
   try {
     const owner = await requireOwner();
-    enforceRateLimit(`acct:create:${owner.id}`);
+    await enforceRateLimit(`acct:create:${owner.id}`);
 
     const u = (username ?? "").trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,30}$/.test(u)) return { ok: false, error: "Usuario inválido (3-30, letras/números/._-)." };
@@ -70,7 +70,7 @@ export async function createDemoAccountAction(
 export async function renewAccountAction(id: string, addDays: number): Promise<ActionResult> {
   try {
     const owner = await requireOwner();
-    enforceRateLimit(`acct:renew:${owner.id}`);
+    await enforceRateLimit(`acct:renew:${owner.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (!Number.isInteger(addDays) || addDays < 1 || addDays > 3650) return { ok: false, error: "Días inválidos." };
 
@@ -94,7 +94,7 @@ export async function renewAccountAction(id: string, addDays: number): Promise<A
 export async function setAccountActiveAction(id: string, active: boolean): Promise<ActionResult> {
   try {
     const owner = await requireOwner();
-    enforceRateLimit(`acct:toggle:${owner.id}`);
+    await enforceRateLimit(`acct:toggle:${owner.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("demo_accounts").update({ active: Boolean(active) }).eq("id", id);
@@ -110,7 +110,7 @@ export async function setAccountActiveAction(id: string, active: boolean): Promi
 export async function deleteDemoAccountAction(id: string): Promise<ActionResult> {
   try {
     const owner = await requireOwner();
-    enforceRateLimit(`acct:delete:${owner.id}`);
+    await enforceRateLimit(`acct:delete:${owner.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const admin = createAdminSupabase();
     const { data: acct } = await admin.from("demo_accounts").select("user_id").eq("id", id).single();

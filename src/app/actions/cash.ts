@@ -24,7 +24,7 @@ export interface ActionResult {
 export async function openRegisterAction(openingAmount: number): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`cash:open:${user.id}`);
+    await enforceRateLimit(`cash:open:${user.id}`);
     const amount = Number(openingAmount);
     if (!Number.isFinite(amount) || amount < 0 || amount > 100_000_000)
       return { ok: false, error: "Monto de apertura inválido." };
@@ -52,7 +52,7 @@ export async function openRegisterAction(openingAmount: number): Promise<ActionR
 export async function addExpenseAction(formData: FormData): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`cash:expense:${user.id}`);
+    await enforceRateLimit(`cash:expense:${user.id}`);
 
     const category = String(formData.get("category") ?? "");
     const description = String(formData.get("description") ?? "").trim();
@@ -104,7 +104,7 @@ export async function addExpenseAction(formData: FormData): Promise<ActionResult
 export async function closeRegisterAction(countedCash: number, notes: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`cash:close:${user.id}`);
+    await enforceRateLimit(`cash:close:${user.id}`);
     const counted = Number(countedCash);
     if (!Number.isFinite(counted) || counted < 0) return { ok: false, error: "Monto contado inválido." };
 
@@ -151,7 +151,7 @@ export async function createRecurringAction(input: {
 }): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`cash:recur:${user.id}`);
+    await enforceRateLimit(`cash:recur:${user.id}`);
     if (!EXPENSE_CATEGORIES.includes(input.category as (typeof EXPENSE_CATEGORIES)[number]))
       return { ok: false, error: "Categoría inválida." };
     if (!PAYMENT_METHODS.includes(input.paymentMethod as (typeof PAYMENT_METHODS)[number]))
@@ -177,7 +177,7 @@ export async function createRecurringAction(input: {
 export async function generateRecurringAction(): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`cash:gen:${user.id}`);
+    await enforceRateLimit(`cash:gen:${user.id}`);
     const supabase = createServerSupabase();
     const { data: reg } = await supabase.from("cash_registers").select("id").eq("status", "abierta").maybeSingle();
     if (!reg) return { ok: false, error: "No hay caja abierta." };

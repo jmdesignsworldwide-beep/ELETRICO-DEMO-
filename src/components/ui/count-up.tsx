@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useInView } from "framer-motion";
+import { formatNumber } from "@/lib/utils";
 
 interface CountUpProps {
   value: number;
@@ -42,7 +43,7 @@ export function CountUp({ value, duration = 1.1, format, className }: CountUpPro
   const rounded = format ? display : Math.round(display);
   return (
     <span ref={ref} className={className}>
-      {format ? format(display) : rounded.toLocaleString("es-DO")}
+      {format ? format(display) : formatNumber(rounded)}
     </span>
   );
 }

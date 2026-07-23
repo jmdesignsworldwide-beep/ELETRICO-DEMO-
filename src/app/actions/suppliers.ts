@@ -45,7 +45,7 @@ function sanitize(i: SupplierInput) {
 export async function createSupplierAction(input: SupplierInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`sup:create:${user.id}`);
+    await enforceRateLimit(`sup:create:${user.id}`);
     const err = validate(input);
     if (err) return { ok: false, error: err };
     const supabase = createServerSupabase();
@@ -61,7 +61,7 @@ export async function createSupplierAction(input: SupplierInput): Promise<Action
 export async function updateSupplierAction(id: string, input: SupplierInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`sup:update:${user.id}`);
+    await enforceRateLimit(`sup:update:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const err = validate(input);
     if (err) return { ok: false, error: err };
@@ -79,7 +79,7 @@ export async function updateSupplierAction(id: string, input: SupplierInput): Pr
 export async function deleteSupplierAction(id: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`sup:delete:${user.id}`);
+    await enforceRateLimit(`sup:delete:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("suppliers").delete().eq("id", id);
@@ -99,7 +99,7 @@ export async function setSupplierPriceAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`sup:price:${user.id}`);
+    await enforceRateLimit(`sup:price:${user.id}`);
     if (!UUID.test(supplierId) || !UUID.test(inventoryId))
       return { ok: false, error: "ID inválido." };
     const p = Number(price);

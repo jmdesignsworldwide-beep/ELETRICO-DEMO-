@@ -51,7 +51,7 @@ function sanitize(i: TechnicianInput) {
 export async function createTechnicianAction(input: TechnicianInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:create:${user.id}`);
+    await enforceRateLimit(`tech:create:${user.id}`);
     const err = validate(input);
     if (err) return { ok: false, error: err };
     const supabase = createServerSupabase();
@@ -67,7 +67,7 @@ export async function createTechnicianAction(input: TechnicianInput): Promise<Ac
 export async function updateTechnicianAction(id: string, input: TechnicianInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:update:${user.id}`);
+    await enforceRateLimit(`tech:update:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const err = validate(input);
     if (err) return { ok: false, error: err };
@@ -85,7 +85,7 @@ export async function updateTechnicianAction(id: string, input: TechnicianInput)
 export async function toggleTechnicianActiveAction(id: string, active: boolean): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:toggle:${user.id}`);
+    await enforceRateLimit(`tech:toggle:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("technicians").update({ active: Boolean(active) }).eq("id", id);
@@ -101,7 +101,7 @@ export async function toggleTechnicianActiveAction(id: string, active: boolean):
 export async function deleteTechnicianAction(id: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:delete:${user.id}`);
+    await enforceRateLimit(`tech:delete:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("technicians").delete().eq("id", id);
@@ -116,7 +116,7 @@ export async function deleteTechnicianAction(id: string): Promise<ActionResult> 
 export async function addCertificationAction(technicianId: string, name: string, expiresAt: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:cert:${user.id}`);
+    await enforceRateLimit(`tech:cert:${user.id}`);
     if (!UUID.test(technicianId)) return { ok: false, error: "ID inválido." };
     if (!name || name.trim().length < 2) return { ok: false, error: "Nombre de certificación requerido." };
     const exp = expiresAt ? new Date(expiresAt) : null;
@@ -136,7 +136,7 @@ export async function addCertificationAction(technicianId: string, name: string,
 export async function deleteCertificationAction(id: string, technicianId: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:certdel:${user.id}`);
+    await enforceRateLimit(`tech:certdel:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const supabase = createServerSupabase();
     const { error } = await supabase.from("technician_certifications").delete().eq("id", id);
@@ -151,7 +151,7 @@ export async function deleteCertificationAction(id: string, technicianId: string
 export async function registerWorklogAction(technicianId: string, hours: number, note: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:worklog:${user.id}`);
+    await enforceRateLimit(`tech:worklog:${user.id}`);
     if (!UUID.test(technicianId)) return { ok: false, error: "ID inválido." };
     const h = Number(hours);
     if (!Number.isFinite(h) || h <= 0 || h > 24 * 31) return { ok: false, error: "Horas inválidas." };
@@ -171,7 +171,7 @@ export async function registerWorklogAction(technicianId: string, hours: number,
 export async function uploadTechnicianPhotoAction(id: string, formData: FormData): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`tech:photo:${user.id}`);
+    await enforceRateLimit(`tech:photo:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const file = formData.get("file");
     if (!(file instanceof File)) return { ok: false, error: "Archivo inválido." };

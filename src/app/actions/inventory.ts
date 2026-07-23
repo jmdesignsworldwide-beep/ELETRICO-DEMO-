@@ -64,7 +64,7 @@ function sanitize(input: MaterialInput) {
 export async function createMaterialAction(input: MaterialInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`mat:create:${user.id}`);
+    await enforceRateLimit(`mat:create:${user.id}`);
     const err = validate(input);
     if (err) return { ok: false, error: err };
 
@@ -90,7 +90,7 @@ export async function createMaterialAction(input: MaterialInput): Promise<Action
 export async function updateMaterialAction(id: string, input: MaterialInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`mat:update:${user.id}`);
+    await enforceRateLimit(`mat:update:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const err = validate(input);
     if (err) return { ok: false, error: err };
@@ -115,7 +115,7 @@ export async function updateMaterialAction(id: string, input: MaterialInput): Pr
 export async function deleteMaterialAction(id: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`mat:delete:${user.id}`);
+    await enforceRateLimit(`mat:delete:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
 
     const supabase = createServerSupabase();
@@ -136,7 +136,7 @@ export async function adjustStockAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`mat:adjust:${user.id}`);
+    await enforceRateLimit(`mat:adjust:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     const d = Math.trunc(Number(delta));
     if (!Number.isFinite(d) || d === 0) return { ok: false, error: "La cantidad no puede ser cero." };
@@ -167,7 +167,7 @@ export async function adjustStockAction(
 export async function uploadMaterialPhotoAction(id: string, formData: FormData): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`mat:photo:${user.id}`);
+    await enforceRateLimit(`mat:photo:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
 
     const file = formData.get("file");

@@ -14,9 +14,9 @@ import { formatRD, formatDate, daysUntil, cn } from "@/lib/utils";
 import type { ServiceOrder, InventoryItem, ActivityEvent } from "@/lib/types";
 
 const quickActions = [
-  { label: "Nueva orden", icon: Plus, href: "/ordenes", primary: true },
-  { label: "Nuevo cliente", icon: UserPlus, href: "/clientes" },
-  { label: "Nueva cotización", icon: FileText, href: "/cotizaciones" },
+  { label: "Nueva orden", icon: Plus, href: "/ordenes?new=1", primary: true },
+  { label: "Nuevo cliente", icon: UserPlus, href: "/clientes?new=1" },
+  { label: "Nueva cotización", icon: FileText, href: "/cotizaciones?new=1" },
 ];
 
 const CLOSED = ["completada", "facturada", "pagada", "cancelada"];
@@ -39,7 +39,7 @@ export function DashboardView({ kpis, orders, activity, inventory }: Props) {
     <div className="space-y-8">
       <Reveal>
         <div className="flex flex-col gap-1">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-sm text-slate-500 dark:text-slate-400" suppressHydrationWarning>
             {formatDate(new Date())} · Panel de control
           </p>
           <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">

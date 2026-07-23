@@ -32,7 +32,7 @@ export async function createInvoiceAction(input: {
 }): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`invoice:create:${user.id}`);
+    await enforceRateLimit(`invoice:create:${user.id}`);
     if (!UUID.test(input.clientId)) return { ok: false, error: "Cliente inválido." };
     const desc = (input.description ?? "").trim();
     if (desc.length < 3) return { ok: false, error: "Describe el concepto de la factura." };
@@ -84,7 +84,7 @@ export async function registerPaymentAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`invoice:pay:${user.id}`);
+    await enforceRateLimit(`invoice:pay:${user.id}`);
     if (!UUID.test(invoiceId)) return { ok: false, error: "Factura inválida." };
     if (!Array.isArray(payments) || payments.length === 0)
       return { ok: false, error: "Agrega al menos un método de pago." };
@@ -198,7 +198,7 @@ export async function registerPaymentAction(
 export async function voidInvoiceAction(invoiceId: string, motivo: string): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`invoice:void:${user.id}`);
+    await enforceRateLimit(`invoice:void:${user.id}`);
     if (!UUID.test(invoiceId)) return { ok: false, error: "Factura inválida." };
     const reason = (motivo ?? "").trim();
     if (reason.length < 5) return { ok: false, error: "El motivo de anulación es obligatorio." };

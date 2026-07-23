@@ -50,7 +50,7 @@ async function nextOrderNumber(supabase: ReturnType<typeof createServerSupabase>
 export async function createOrderAction(input: OrderInput): Promise<ActionResult> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`order:create:${user.id}`);
+    await enforceRateLimit(`order:create:${user.id}`);
 
     if (!UUID.test(input.clientId)) return { ok: false, error: "Cliente inválido." };
     if (!SERVICE_TYPES.includes(input.serviceType as (typeof SERVICE_TYPES)[number]))
@@ -101,7 +101,7 @@ export async function createOrderAction(input: OrderInput): Promise<ActionResult
 export async function updateOrderStatusAction(id: string, status: string): Promise<ActionResult> {
   try {
     const user = await requireActiveUser();
-    enforceRateLimit(`order:status:${user.id}`);
+    await enforceRateLimit(`order:status:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (!STATUSES.includes(status as (typeof STATUSES)[number]))
       return { ok: false, error: "Estado inválido." };
@@ -123,7 +123,7 @@ export async function updateOrderStatusAction(id: string, status: string): Promi
 export async function rescheduleOrderAction(id: string, newDate: string): Promise<ActionResult> {
   try {
     const user = await requireActiveUser();
-    enforceRateLimit(`order:reschedule:${user.id}`);
+    await enforceRateLimit(`order:reschedule:${user.id}`);
     if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
     if (isNaN(Date.parse(newDate))) return { ok: false, error: "Fecha inválida." };
 
@@ -159,7 +159,7 @@ export async function registerMaterialAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireActiveUser();
-    enforceRateLimit(`order:material:${user.id}`);
+    await enforceRateLimit(`order:material:${user.id}`);
     if (!UUID.test(orderId) || !UUID.test(inventoryId))
       return { ok: false, error: "ID inválido." };
     const qty = Math.floor(Number(qtyUsed));
@@ -220,7 +220,7 @@ export async function closeOrderAction(
 ): Promise<ActionResult> {
   try {
     const user = await requireActiveUser();
-    enforceRateLimit(`order:close:${user.id}`);
+    await enforceRateLimit(`order:close:${user.id}`);
     if (!UUID.test(orderId)) return { ok: false, error: "ID inválido." };
     if (!finalNotes || finalNotes.trim().length < 4)
       return { ok: false, error: "La descripción final es obligatoria." };
@@ -259,7 +259,7 @@ export async function convertOrderToInvoiceAction(
 ): Promise<ActionResult & { invoiceId?: string }> {
   try {
     const user = await requireAdmin();
-    enforceRateLimit(`order:invoice:${user.id}`);
+    await enforceRateLimit(`order:invoice:${user.id}`);
     if (!UUID.test(orderId)) return { ok: false, error: "ID inválido." };
 
     const supabase = createServerSupabase();

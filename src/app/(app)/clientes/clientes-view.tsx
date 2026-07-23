@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Phone, MapPin, Building2, Home, Factory, X, Loader2 } from "lucide-react";
 import { Stagger, StaggerItem, Reveal } from "@/components/ui/reveal";
@@ -22,6 +23,8 @@ export function ClientesView({ clients }: { clients: Client[] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<PropertyType | "todos">("todos");
   const [modalOpen, setModalOpen] = useState(false);
+  const params = useSearchParams();
+  useEffect(() => { if (params.get("new") === "1") setModalOpen(true); }, [params]);
 
   const filtered = useMemo(
     () =>
@@ -99,8 +102,9 @@ export function ClientesView({ clients }: { clients: Client[] }) {
                 <motion.div
                   whileHover={{ y: -3 }}
                   transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className="glass-card group h-full cursor-pointer p-5 transition-shadow hover:shadow-card-light-hover"
+                  className="h-full"
                 >
+                <Link href={`/clientes/${c.id}`} className="glass-card group block h-full cursor-pointer p-5 transition-shadow hover:shadow-card-light-hover">
                   <div className="flex items-start gap-3">
                     <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-volt-gradient text-sm font-bold text-ink-950">
                       {initials(c.name)}
@@ -127,6 +131,7 @@ export function ClientesView({ clients }: { clients: Client[] }) {
                       <p className="font-semibold tabular-nums">{c.serviceCount}</p>
                     </div>
                   </div>
+                </Link>
                 </motion.div>
               </StaggerItem>
             );
@@ -147,7 +152,9 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ClientInput>({
     name: "", phone: "", address: "", propertyType: "residencial", panelType: "", voltage: "", notes: "",
+    breakerPrincipal: "", contactoAlterno: "", direccionReferencia: "", problemasConocidos: "", historialInstalaciones: "",
   });
+  const set = (patch: Partial<ClientInput>) => setForm((f) => ({ ...f, ...patch }));
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -173,7 +180,7 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.97 }}
         transition={{ type: "spring", stiffness: 320, damping: 30 }}
-        className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2"
+        className="fixed inset-0 z-50 m-auto h-fit max-h-[92vh] w-[92vw] max-w-lg overflow-y-auto"
       >
         <form onSubmit={submit} className="glass-card max-h-[88vh] overflow-y-auto p-6">
           <div className="mb-4 flex items-center justify-between">
@@ -182,22 +189,38 @@ function NewClientModal({ onClose }: { onClose: () => void }) {
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="space-y-3">
-            <input required placeholder="Nombre del cliente *" className={field} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3">
-              <input required placeholder="Teléfono *" className={field} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <select className={field} value={form.propertyType} onChange={(e) => setForm({ ...form, propertyType: e.target.value })}>
-                <option value="residencial">Residencial</option>
-                <option value="comercial">Comercial</option>
-                <option value="industrial">Industrial</option>
-              </select>
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Datos generales</p>
+              <div className="space-y-3">
+                <input required placeholder="Nombre del cliente *" className={field} value={form.name} onChange={(e) => set({ name: e.target.value })} />
+                <div className="grid grid-cols-2 gap-3">
+                  <input required placeholder="Teléfono *" className={field} value={form.phone} onChange={(e) => set({ phone: e.target.value })} />
+                  <input placeholder="Contacto alterno" className={field} value={form.contactoAlterno} onChange={(e) => set({ contactoAlterno: e.target.value })} />
+                </div>
+                <select className={field} value={form.propertyType} onChange={(e) => set({ propertyType: e.target.value })}>
+                  <option value="residencial">Residencial</option>
+                  <option value="comercial">Comercial</option>
+                  <option value="industrial">Industrial</option>
+                </select>
+                <input placeholder="Dirección" className={field} value={form.address} onChange={(e) => set({ address: e.target.value })} />
+                <input placeholder="Punto de referencia (cómo llegar)" className={field} value={form.direccionReferencia} onChange={(e) => set({ direccionReferencia: e.target.value })} />
+              </div>
             </div>
-            <input placeholder="Dirección" className={field} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3">
-              <input placeholder="Tipo de panel" className={field} value={form.panelType} onChange={(e) => setForm({ ...form, panelType: e.target.value })} />
-              <input placeholder="Voltaje" className={field} value={form.voltage} onChange={(e) => setForm({ ...form, voltage: e.target.value })} />
+
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Expediente técnico</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input placeholder="Tipo de panel" className={field} value={form.panelType} onChange={(e) => set({ panelType: e.target.value })} />
+                  <input placeholder="Voltaje (110V / 220V…)" className={field} value={form.voltage} onChange={(e) => set({ voltage: e.target.value })} />
+                </div>
+                <input placeholder="Breaker principal (amperaje)" className={field} value={form.breakerPrincipal} onChange={(e) => set({ breakerPrincipal: e.target.value })} />
+                <textarea placeholder="Problemas conocidos (fallas recurrentes, riesgos…)" rows={2} className={field} value={form.problemasConocidos} onChange={(e) => set({ problemasConocidos: e.target.value })} />
+                <textarea placeholder="Historial de instalaciones previas" rows={2} className={field} value={form.historialInstalaciones} onChange={(e) => set({ historialInstalaciones: e.target.value })} />
+                <textarea placeholder="Notas técnicas adicionales" rows={2} className={field} value={form.notes} onChange={(e) => set({ notes: e.target.value })} />
+              </div>
             </div>
-            <textarea placeholder="Notas técnicas" rows={3} className={field} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           {error && <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="mt-5 flex justify-end gap-2">
