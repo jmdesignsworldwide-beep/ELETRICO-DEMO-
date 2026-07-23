@@ -176,6 +176,68 @@ export interface InvoiceDetail extends Invoice {
   payments: Payment[];
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  rnc?: string;
+  contact?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  paymentTerms?: string;
+  purchaseCount: number;
+  pending: number;
+}
+
+export interface SupplierPrice {
+  id: string;
+  inventoryId: string;
+  materialName: string;
+  sku: string;
+  price: number;
+  updatedAt: string;
+}
+
+export interface SupplierDetail extends Supplier {
+  prices: SupplierPrice[];
+  purchaseOrders: { id: string; number: string; status: string; total: number; createdAt: string }[];
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  inventoryId: string;
+  name: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitPrice: number;
+  discrepancyNote?: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  supplierId: string;
+  supplierName: string;
+  status: string;
+  total: number;
+  itemCount: number;
+  createdAt: string;
+  receivedAt?: string;
+}
+
+export interface PurchaseOrderDetail extends PurchaseOrder {
+  supplierPhone?: string;
+  notes?: string;
+  items: PurchaseOrderItem[];
+}
+
+export interface PriceComparison {
+  inventoryId: string;
+  materialName: string;
+  sku: string;
+  offers: { supplierId: string; supplierName: string; price: number }[];
+}
+
 export interface ActivityEvent {
   id: string;
   type: "orden" | "cliente" | "cotizacion" | "factura" | "pago" | "inventario";
