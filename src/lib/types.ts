@@ -105,6 +105,20 @@ export interface InventoryItem {
   unit: string;
 }
 
+export interface InventoryMovement {
+  id: string;
+  change: number;
+  reason: string;
+  orderNumber?: string;
+  actorName?: string;
+  createdAt: string;
+}
+
+export interface MaterialDetail extends InventoryItem {
+  photoUrl?: string;
+  movements: InventoryMovement[];
+}
+
 export interface Quote {
   id: string;
   number: string;
