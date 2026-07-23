@@ -14,9 +14,9 @@ import { formatRD, formatDate, daysUntil, cn } from "@/lib/utils";
 import type { ServiceOrder, InventoryItem, ActivityEvent } from "@/lib/types";
 
 const quickActions = [
-  { label: "Nueva orden", icon: Plus, href: "/ordenes", primary: true },
-  { label: "Nuevo cliente", icon: UserPlus, href: "/clientes" },
-  { label: "Nueva cotización", icon: FileText, href: "/cotizaciones" },
+  { label: "Nueva orden", icon: Plus, href: "/ordenes?new=1", primary: true },
+  { label: "Nuevo cliente", icon: UserPlus, href: "/clientes?new=1" },
+  { label: "Nueva cotización", icon: FileText, href: "/cotizaciones?new=1" },
 ];
 
 const CLOSED = ["completada", "facturada", "pagada", "cancelada"];

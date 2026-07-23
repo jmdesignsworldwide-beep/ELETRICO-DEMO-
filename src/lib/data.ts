@@ -30,19 +30,49 @@ export async function getClients(): Promise<Client[]> {
     .from("clients")
     .select("*")
     .order("name", { ascending: true });
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    phone: c.phone,
-    address: c.address ?? "",
-    propertyType: c.property_type,
-    panelType: c.panel_type ?? undefined,
-    voltage: c.voltage ?? undefined,
-    notes: c.notes ?? undefined,
+  return (data ?? []).map(mapClient);
+}
+
+function mapClient(c: Record<string, unknown>): Client {
+  return {
+    id: c.id as string,
+    name: c.name as string,
+    phone: c.phone as string,
+    address: (c.address as string) ?? "",
+    propertyType: c.property_type as Client["propertyType"],
+    panelType: (c.panel_type as string) ?? undefined,
+    voltage: (c.voltage as string) ?? undefined,
+    notes: (c.notes as string) ?? undefined,
+    breakerPrincipal: (c.breaker_principal as string) ?? undefined,
+    contactoAlterno: (c.contacto_alterno as string) ?? undefined,
+    direccionReferencia: (c.direccion_referencia as string) ?? undefined,
+    problemasConocidos: (c.problemas_conocidos as string) ?? undefined,
+    historialInstalaciones: (c.historial_instalaciones as string) ?? undefined,
     totalSpent: Number(c.total_spent ?? 0),
-    serviceCount: c.service_count ?? 0,
-    createdAt: c.created_at,
-  }));
+    serviceCount: (c.service_count as number) ?? 0,
+    createdAt: c.created_at as string,
+  };
+}
+
+export async function getClient(id: string): Promise<import("./types").ClientDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: c } = await supabase.from("clients").select("*").eq("id", id).single();
+  if (!c) return null;
+  const [{ data: orders }, { data: invoices }] = await Promise.all([
+    supabase.from("service_orders").select("id, number, service_type, status, total, scheduled_date").eq("client_id", id).order("scheduled_date", { ascending: false }),
+    supabase.from("invoices").select("id, number, status, total, created_at").eq("client_id", id).order("created_at", { ascending: false }),
+  ]);
+  return {
+    ...mapClient(c),
+    orders: (orders ?? []).map((o) => ({
+      id: o.id, number: o.number, serviceType: o.service_type, status: o.status,
+      total: Number(o.total ?? 0), scheduledDate: o.scheduled_date,
+    })),
+    invoices: (invoices ?? []).map((f) => ({
+      id: f.id, number: f.number, status: f.status, total: Number(f.total ?? 0), createdAt: f.created_at,
+    })),
+  };
 }
 
 const PERIOD_DAYS = 15;
@@ -421,13 +451,14 @@ export async function getQuotes(): Promise<Quote[]> {
   const supabase = createServerSupabase();
   const { data } = await supabase
     .from("quotes")
-    .select("*, clients(name)")
+    .select("*, clients(name, phone)")
     .order("created_at", { ascending: false });
   return (data ?? []).map((q) => ({
     id: q.id,
     number: q.number,
     clientId: q.client_id,
-    clientName: (q.clients as { name: string } | null)?.name ?? "Cliente",
+    clientName: (q.clients as unknown as { name: string } | null)?.name ?? "Cliente",
+    clientPhone: (q.clients as unknown as { phone: string } | null)?.phone ?? undefined,
     status: q.status,
     subtotal: Number(q.subtotal ?? 0),
     discount: Number(q.discount ?? 0),
@@ -436,6 +467,27 @@ export async function getQuotes(): Promise<Quote[]> {
     createdAt: q.created_at,
     validUntil: q.valid_until,
   }));
+}
+
+export async function getQuote(id: string): Promise<import("./types").QuoteDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: q } = await supabase
+    .from("quotes").select("*, clients(name, phone, address)").eq("id", id).single();
+  if (!q) return null;
+  const { data: items } = await supabase.from("quote_items").select("*").eq("quote_id", id).order("sort");
+  const client = q.clients as unknown as { name: string; phone: string; address: string } | null;
+  return {
+    id: q.id, number: q.number, clientId: q.client_id,
+    clientName: client?.name ?? "Cliente", clientPhone: client?.phone ?? undefined, clientAddress: client?.address ?? undefined,
+    status: q.status, subtotal: Number(q.subtotal ?? 0), discount: Number(q.discount ?? 0),
+    itbis: Number(q.itbis ?? 0), total: Number(q.total ?? 0), createdAt: q.created_at, validUntil: q.valid_until,
+    items: (items ?? []).map((it) => ({
+      id: it.id, kind: it.kind, description: it.description, qty: Number(it.qty ?? 1),
+      unitPrice: Number(it.unit_price ?? 0), lineTotal: Number(it.line_total ?? 0),
+      inventoryId: it.inventory_id ?? undefined,
+    })),
+  };
 }
 
 export async function getInvoices(): Promise<Invoice[]> {
