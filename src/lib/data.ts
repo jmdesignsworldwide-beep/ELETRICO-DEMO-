@@ -44,22 +44,90 @@ export async function getClients(): Promise<Client[]> {
   }));
 }
 
+const PERIOD_DAYS = 15;
+
+function mapTechnician(t: Record<string, unknown>): Technician {
+  return {
+    id: t.id as string,
+    name: t.name as string,
+    phone: t.phone as string,
+    specialties: (t.specialties as string[]) ?? [],
+    certifications: (t.certifications as string[]) ?? [],
+    activeOrders: (t.active_orders as number) ?? 0,
+    cedula: (t.cedula as string) ?? undefined,
+    address: (t.address as string) ?? undefined,
+    hourlyRate: Number(t.hourly_rate ?? 0),
+    active: (t.active as boolean) ?? true,
+  };
+}
+
 export async function getTechnicians(): Promise<
   (Technician & { hoursPeriod: number; payrollPeriod: number })[]
 > {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServerSupabase();
-  const { data } = await supabase.from("technicians").select("*").order("name");
-  return (data ?? []).map((t) => ({
-    id: t.id,
-    name: t.name,
-    phone: t.phone,
-    specialties: t.specialties ?? [],
-    certifications: t.certifications ?? [],
-    activeOrders: t.active_orders ?? 0,
-    hoursPeriod: t.hours_period ?? 0,
-    payrollPeriod: Number(t.payroll_period ?? 0),
-  }));
+  const since = new Date(Date.now() - PERIOD_DAYS * 86_400_000).toISOString();
+  const [{ data }, { data: logs }] = await Promise.all([
+    supabase.from("technicians").select("*").order("name"),
+    supabase.from("technician_worklog").select("technician_id, hours").gte("created_at", since),
+  ]);
+  const hoursByTech = new Map<string, number>();
+  for (const l of logs ?? []) hoursByTech.set(l.technician_id, (hoursByTech.get(l.technician_id) ?? 0) + Number(l.hours));
+  return (data ?? []).map((t) => {
+    const base = mapTechnician(t);
+    const hoursPeriod = hoursByTech.get(base.id) ?? 0;
+    return { ...base, hoursPeriod, payrollPeriod: hoursPeriod * base.hourlyRate };
+  });
+}
+
+export async function getTechnician(id: string): Promise<import("./types").TechnicianDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: t } = await supabase.from("technicians").select("*").eq("id", id).single();
+  if (!t) return null;
+
+  const [{ data: certs }, { data: logs }, { data: orders }] = await Promise.all([
+    supabase.from("technician_certifications").select("*").eq("technician_id", id).order("expires_at"),
+    supabase.from("technician_worklog").select("*, service_orders(number)").eq("technician_id", id).order("created_at", { ascending: false }).limit(50),
+    supabase.from("service_orders").select("id, number, status, scheduled_date, clients(name)").contains("technician_ids", [id]).order("scheduled_date", { ascending: false }),
+  ]);
+
+  // Materiales usados por el técnico (de órdenes donde está asignado).
+  const orderIds = (orders ?? []).map((o) => o.id);
+  let materialsUsed: { name: string; qty: number }[] = [];
+  if (orderIds.length) {
+    const { data: mats } = await supabase.from("order_materials").select("name, qty_used").in("order_id", orderIds);
+    const agg = (mats ?? []).reduce<Record<string, number>>((acc, m) => {
+      acc[m.name] = (acc[m.name] ?? 0) + Number(m.qty_used ?? 0);
+      return acc;
+    }, {});
+    materialsUsed = Object.entries(agg).map(([name, qty]) => ({ name, qty })).sort((a, b) => b.qty - a.qty);
+  }
+
+  let photoUrl: string | undefined;
+  if (t.photo_path && isServiceConfigured()) {
+    try {
+      const admin = createAdminSupabase();
+      const { data: signed } = await admin.storage.from("technician-photos").createSignedUrl(t.photo_path, 600);
+      photoUrl = signed?.signedUrl;
+    } catch { /* sin foto */ }
+  }
+
+  return {
+    ...mapTechnician(t),
+    photoUrl,
+    certs: (certs ?? []).map((c) => ({ id: c.id, name: c.name, expiresAt: c.expires_at ?? undefined })),
+    worklog: (logs ?? []).map((l) => ({
+      id: l.id, hours: Number(l.hours), note: l.note ?? undefined,
+      orderNumber: (l.service_orders as unknown as { number: string } | null)?.number ?? undefined,
+      createdAt: l.created_at,
+    })),
+    assignedOrders: (orders ?? []).map((o) => ({
+      id: o.id, number: o.number, status: o.status, scheduledDate: o.scheduled_date,
+      clientName: (o.clients as unknown as { name: string } | null)?.name ?? "Cliente",
+    })),
+    materialsUsed,
+  };
 }
 
 export async function getServiceOrders(): Promise<ServiceOrder[]> {

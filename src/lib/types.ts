@@ -55,6 +55,32 @@ export interface Technician {
   specialties: string[];
   certifications: string[];
   activeOrders: number;
+  cedula?: string;
+  address?: string;
+  hourlyRate: number;
+  active: boolean;
+  photoUrl?: string;
+}
+
+export interface Certification {
+  id: string;
+  name: string;
+  expiresAt?: string;
+}
+
+export interface WorklogEntry {
+  id: string;
+  hours: number;
+  note?: string;
+  orderNumber?: string;
+  createdAt: string;
+}
+
+export interface TechnicianDetail extends Technician {
+  certs: Certification[];
+  worklog: WorklogEntry[];
+  assignedOrders: { id: string; number: string; clientName: string; status: string; scheduledDate: string }[];
+  materialsUsed: { name: string; qty: number }[];
 }
 
 export interface ServiceOrder {
