@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Search, Bell, LogOut, Clock, Loader2 } from "lucide-react";
+import { Menu, X, Bell, LogOut, Clock, Loader2 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { SidebarNav } from "./sidebar-nav";
 import { ThemeToggle } from "./theme-toggle";
+import { CommandPalette } from "./command-palette";
 import { Footer } from "@/components/footer";
 import { navItems } from "@/lib/nav";
 import { initials } from "@/lib/utils";
@@ -61,11 +62,8 @@ export function AppShell({ children, isOwner = false, demoDaysRemaining = null, 
             <h1 className="text-base font-semibold tracking-tight sm:text-lg">{ownerItem ? "Cuentas de demo" : current?.label}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <div className="relative hidden md:block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input placeholder="Buscar…" className="w-56 rounded-xl border border-slate-200 bg-white/70 py-2 pl-9 pr-3 text-sm outline-none transition-all placeholder:text-slate-400 focus:w-64 focus:border-volt-400 focus:ring-2 focus:ring-volt-500/25 dark:border-white/10 dark:bg-white/[0.04]" />
-            </div>
-            <button aria-label="Notificaciones" className="relative grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 dark:border-white/10 dark:text-slate-300"><Bell className="h-[18px] w-[18px]" /><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-volt-500 ring-2 ring-white dark:ring-ink-950" /></button>
+            <CommandPalette isOwner={isOwner} />
+            <NotificationsBell />
             <ThemeToggle />
             <div className="ml-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-white/60 py-1 pl-1 pr-3 dark:border-white/10 dark:bg-white/[0.03]">
               <div className="grid h-7 w-7 place-items-center rounded-lg bg-volt-gradient text-xs font-bold text-ink-950">{initials(name)}</div>
@@ -87,6 +85,39 @@ export function AppShell({ children, isOwner = false, demoDaysRemaining = null, 
         <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
         <Footer />
       </div>
+    </div>
+  );
+}
+
+function NotificationsBell() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)} aria-label="Notificaciones" className="relative grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 dark:border-white/10 dark:text-slate-300">
+        <Bell className="h-[18px] w-[18px]" />
+        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-volt-500 ring-2 ring-white dark:ring-ink-950" />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <motion.div initial={{ opacity: 0, y: -8, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.97 }} transition={{ type: "spring", stiffness: 340, damping: 28 }} className="glass-card absolute right-0 top-11 z-50 w-72 p-2">
+              <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Novedades</p>
+              <Link href="/ordenes" onClick={() => setOpen(false)} className="flex items-start gap-2.5 rounded-xl p-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                <div><p className="text-sm font-medium">Órdenes por vencer</p><p className="text-xs text-slate-400">Revisa la banda de urgencias</p></div>
+              </Link>
+              <Link href="/inventario" onClick={() => setOpen(false)} className="flex items-start gap-2.5 rounded-xl p-3 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
+                <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <div><p className="text-sm font-medium">Stock bajo</p><p className="text-xs text-slate-400">Materiales por reabastecer</p></div>
+              </Link>
+              <Link href="/dashboard" onClick={() => setOpen(false)} className="flex items-center justify-center rounded-xl p-2.5 text-xs font-medium text-volt-600 hover:underline dark:text-volt-400">
+                Ver toda la actividad
+              </Link>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
