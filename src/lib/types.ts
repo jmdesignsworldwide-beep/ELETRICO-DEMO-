@@ -238,6 +238,48 @@ export interface PriceComparison {
   offers: { supplierId: string; supplierName: string; price: number }[];
 }
 
+export interface Expense {
+  id: string;
+  category: string;
+  description: string;
+  amount: number;
+  paymentMethod: string;
+  hasReceipt: boolean;
+  createdAt: string;
+}
+
+export interface RecurringExpense {
+  id: string;
+  category: string;
+  description: string;
+  amount: number;
+  paymentMethod: string;
+  active: boolean;
+}
+
+export interface CashRegister {
+  id: string;
+  openerName?: string;
+  openingAmount: number;
+  openedAt: string;
+  status: string;
+  closedAt?: string;
+  expectedCash?: number;
+  countedCash?: number;
+  difference?: number;
+  closingNotes?: string;
+}
+
+export interface RegisterSummary {
+  register: CashRegister;
+  incomeByMethod: Record<string, number>;
+  incomeTotal: number;
+  expenses: Expense[];
+  expensesByMethod: Record<string, number>;
+  expensesTotal: number;
+  expectedCash: number;
+}
+
 export interface ActivityEvent {
   id: string;
   type: "orden" | "cliente" | "cotizacion" | "factura" | "pago" | "inventario";

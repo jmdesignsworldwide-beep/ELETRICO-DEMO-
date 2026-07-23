@@ -443,6 +443,93 @@ export async function getInvoice(id: string): Promise<import("./types").InvoiceD
   };
 }
 
+// ── Caja y gastos ───────────────────────────────────────────────
+function mapRegister(r: Record<string, unknown>): import("./types").CashRegister {
+  return {
+    id: r.id as string,
+    openerName: (r.opener_name as string) ?? undefined,
+    openingAmount: Number(r.opening_amount ?? 0),
+    openedAt: r.opened_at as string,
+    status: r.status as string,
+    closedAt: (r.closed_at as string) ?? undefined,
+    expectedCash: r.expected_cash != null ? Number(r.expected_cash) : undefined,
+    countedCash: r.counted_cash != null ? Number(r.counted_cash) : undefined,
+    difference: r.difference != null ? Number(r.difference) : undefined,
+    closingNotes: (r.closing_notes as string) ?? undefined,
+  };
+}
+
+export async function getOpenRegister(): Promise<import("./types").CashRegister | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data } = await supabase.from("cash_registers").select("*").eq("status", "abierta").maybeSingle();
+  return data ? mapRegister(data) : null;
+}
+
+async function summarize(
+  register: import("./types").CashRegister
+): Promise<import("./types").RegisterSummary> {
+  const supabase = createServerSupabase();
+  const from = register.openedAt;
+  const to = register.closedAt ?? new Date().toISOString();
+
+  const [{ data: pays }, { data: exps }] = await Promise.all([
+    supabase.from("payments").select("method, amount, created_at").gte("created_at", from).lte("created_at", to),
+    supabase.from("expenses").select("*").eq("register_id", register.id).order("created_at", { ascending: false }),
+  ]);
+
+  const incomeByMethod: Record<string, number> = {};
+  for (const p of pays ?? []) incomeByMethod[p.method] = (incomeByMethod[p.method] ?? 0) + Number(p.amount);
+  const incomeTotal = Object.values(incomeByMethod).reduce((s, n) => s + n, 0);
+
+  const expenses: import("./types").Expense[] = (exps ?? []).map((e) => ({
+    id: e.id, category: e.category, description: e.description,
+    amount: Number(e.amount), paymentMethod: e.payment_method,
+    hasReceipt: Boolean(e.receipt_path), createdAt: e.created_at,
+  }));
+  const expensesByMethod: Record<string, number> = {};
+  for (const e of expenses) expensesByMethod[e.paymentMethod] = (expensesByMethod[e.paymentMethod] ?? 0) + e.amount;
+  const expensesTotal = expenses.reduce((s, e) => s + e.amount, 0);
+
+  const expectedCash =
+    register.openingAmount + (incomeByMethod["efectivo"] ?? 0) - (expensesByMethod["efectivo"] ?? 0);
+
+  return { register, incomeByMethod, incomeTotal, expenses, expensesByMethod, expensesTotal, expectedCash };
+}
+
+export async function getRegisterSummary(): Promise<import("./types").RegisterSummary | null> {
+  const open = await getOpenRegister();
+  if (!open) return null;
+  return summarize(open);
+}
+
+export async function getRegister(id: string): Promise<import("./types").RegisterSummary | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data } = await supabase.from("cash_registers").select("*").eq("id", id).single();
+  if (!data) return null;
+  return summarize(mapRegister(data));
+}
+
+export async function getCashHistory(): Promise<import("./types").CashRegister[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const { data } = await supabase
+    .from("cash_registers").select("*").eq("status", "cerrada")
+    .order("closed_at", { ascending: false }).limit(30);
+  return (data ?? []).map(mapRegister);
+}
+
+export async function getRecurringExpenses(): Promise<import("./types").RecurringExpense[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const { data } = await supabase.from("recurring_expenses").select("*").order("created_at");
+  return (data ?? []).map((r) => ({
+    id: r.id, category: r.category, description: r.description,
+    amount: Number(r.amount), paymentMethod: r.payment_method, active: r.active,
+  }));
+}
+
 export async function getActivityFeed(): Promise<ActivityEvent[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServerSupabase();
