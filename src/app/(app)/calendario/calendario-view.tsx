@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,7 +31,15 @@ type View = "mes" | "semana" | "agenda";
 
 export function CalendarioView({ orders, technicians }: { orders: ServiceOrder[]; technicians: Technician[] }) {
   const [view, setView] = useState<View>("mes");
-  const [cursor, setCursor] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; });
+  // El "hoy" y el mes visible dependen de la hora local; calcularlos solo tras
+  // montar evita que el servidor (UTC) y el cliente (RD, UTC-4) rendericen meses
+  // distintos en el borde de mes → sin desajuste de hidratación.
+  const [cursor, setCursor] = useState<Date | null>(null);
+  const [today, setToday] = useState<Date | null>(null);
+  useEffect(() => {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    setCursor(d); setToday(new Date(d));
+  }, []);
   const [tech, setTech] = useState("todos");
   const [type, setType] = useState("todos");
   const [drop, setDrop] = useState<{ order: ServiceOrder; date: Date } | null>(null);
@@ -48,7 +56,15 @@ export function CalendarioView({ orders, technicians }: { orders: ServiceOrder[]
     return map;
   }, [filtered]);
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (!cursor || !today) {
+    return (
+      <div className="space-y-6">
+        <div className="glass-card grid min-h-[420px] place-items-center p-12 text-slate-400">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      </div>
+    );
+  }
   const todayEvents = eventsByDay[key(today)] ?? [];
 
   return (
@@ -256,7 +272,7 @@ function RescheduleModal({ order, date, onClose }: { order: ServiceOrder; date: 
   return (
     <>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-sm" />
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm -translate-x-1/2 -translate-y-1/2">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="fixed inset-0 z-50 m-auto h-fit max-h-[92vh] w-[90vw] max-w-sm overflow-y-auto">
         <div className="glass-card p-6 text-center">
           <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-volt-500/10 text-volt-500"><CalendarDays className="h-6 w-6" /></div>
           <h3 className="font-semibold">¿Reprogramar {order.number}?</h3>
