@@ -1,6 +1,11 @@
 import "server-only";
 
-import { createServerSupabase, isSupabaseConfigured } from "./supabase/server";
+import {
+  createServerSupabase,
+  createAdminSupabase,
+  isSupabaseConfigured,
+  isServiceConfigured,
+} from "./supabase/server";
 import type {
   Client,
   Technician,
@@ -141,6 +146,76 @@ export async function getInventory(): Promise<InventoryItem[]> {
     minStock: i.min_stock ?? 0,
     unit: i.unit ?? "unidad",
   }));
+}
+
+export async function getMaterial(id: string): Promise<import("./types").MaterialDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: i } = await supabase.from("inventory").select("*").eq("id", id).single();
+  if (!i) return null;
+
+  const { data: moves } = await supabase
+    .from("inventory_movements")
+    .select("*, service_orders(number)")
+    .eq("inventory_id", id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  let photoUrl: string | undefined;
+  if (i.photo_path && isServiceConfigured()) {
+    try {
+      const admin = createAdminSupabase();
+      const { data: signed } = await admin.storage
+        .from("inventory-photos")
+        .createSignedUrl(i.photo_path, 600); // expiración corta
+      photoUrl = signed?.signedUrl;
+    } catch {
+      /* sin foto disponible */
+    }
+  }
+
+  return {
+    id: i.id,
+    name: i.name,
+    category: i.category,
+    sku: i.sku,
+    costPrice: Number(i.cost_price ?? 0),
+    salePrice: Number(i.sale_price ?? 0),
+    stock: i.stock ?? 0,
+    minStock: i.min_stock ?? 0,
+    unit: i.unit ?? "unidad",
+    photoUrl,
+    movements: (moves ?? []).map((m) => ({
+      id: m.id,
+      change: m.change,
+      reason: m.reason,
+      orderNumber: (m.service_orders as { number: string } | null)?.number ?? undefined,
+      createdAt: m.created_at,
+    })),
+  };
+}
+
+export async function getInventoryReport() {
+  const items = await getInventory();
+  const costValue = items.reduce((s, i) => s + i.costPrice * i.stock, 0);
+  const saleValue = items.reduce((s, i) => s + i.salePrice * i.stock, 0);
+  const lowStock = items.filter((i) => i.stock <= i.minStock);
+
+  let mostUsed: { name: string; qty: number }[] = [];
+  if (isSupabaseConfigured()) {
+    const supabase = createServerSupabase();
+    const { data } = await supabase.from("order_materials").select("name, qty_used");
+    const agg = (data ?? []).reduce<Record<string, number>>((acc, m) => {
+      acc[m.name] = (acc[m.name] ?? 0) + Number(m.qty_used ?? 0);
+      return acc;
+    }, {});
+    mostUsed = Object.entries(agg)
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 8);
+  }
+
+  return { items, costValue, saleValue, lowStock, mostUsed };
 }
 
 export async function getQuotes(): Promise<Quote[]> {
