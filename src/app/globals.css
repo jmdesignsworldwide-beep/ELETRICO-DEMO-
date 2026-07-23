@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-ink-900 antialiased dark:bg-ink-950 dark:text-slate-100;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Fondo con profundidad — nunca plano, en ambos temas. */
+  .app-bg {
+    background-color: #f6f7f9;
+    background-image:
+      radial-gradient(70% 55% at 50% -10%, rgba(255, 204, 0, 0.10) 0%, rgba(255, 204, 0, 0) 60%),
+      radial-gradient(40% 40% at 100% 0%, rgba(255, 217, 31, 0.08) 0%, rgba(255, 217, 31, 0) 55%);
+  }
+  .dark .app-bg {
+    background-color: #050506;
+    background-image:
+      radial-gradient(70% 55% at 50% -10%, rgba(255, 204, 0, 0.14) 0%, rgba(255, 204, 0, 0) 60%),
+      radial-gradient(45% 45% at 100% 0%, rgba(255, 204, 0, 0.06) 0%, rgba(255, 204, 0, 0) 55%);
+  }
+
+  ::selection {
+    @apply bg-volt-500/30;
+  }
+
+  /* Scrollbar sutil */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300 dark:bg-ink-700;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+@layer components {
+  /* Superficie glass premium — con profundidad en ambos temas. */
+  .glass-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white/90 shadow-card-light backdrop-blur-xl;
+    @apply dark:border-white/[0.06] dark:bg-white/[0.03] dark:shadow-none;
+  }
+  .dark .glass-card {
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+      0 24px 60px -30px rgba(0, 0, 0, 0.8);
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-volt-gradient px-4 py-2.5
+      text-sm font-semibold text-ink-950 shadow-glow transition-all
+      hover:shadow-glow-lg hover:brightness-105 active:scale-[0.98]
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt-500 focus-visible:ring-offset-2
+      focus-visible:ring-offset-white dark:focus-visible:ring-offset-ink-950 disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5
+      text-sm font-medium text-ink-800 transition-all hover:bg-slate-50 active:scale-[0.98]
+      dark:border-white/10 dark:bg-white/[0.03] dark:text-slate-200 dark:hover:bg-white/[0.06];
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset;
+  }
+
+  .kpi-value {
+    @apply text-3xl font-bold tabular-nums tracking-tight sm:text-4xl;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-slate-200/70 dark:bg-white/[0.06];
+  }
+  .skeleton::after {
+    @apply absolute inset-0 -translate-x-full;
+    content: "";
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+    animation: shimmer 1.6s infinite;
+  }
+  .dark .skeleton::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
