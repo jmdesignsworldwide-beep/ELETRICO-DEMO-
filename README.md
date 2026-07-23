@@ -48,12 +48,29 @@ Cada enlace del menú lleva a una pantalla real con datos — cero clics muertos
 - Paso de cierre obligatorio antes de cada merge: correr el **Security Advisor**
   de Supabase y cerrar todas las advertencias.
 
-## Nota sobre los datos de demo
+## Datos — cero data en código
 
-Esta demo renderiza con un dataset realista dominicano (`src/lib/demo-data.ts`)
-para funcionar de inmediato en Vercel sin requerir credenciales. El scaffolding
-de Supabase y las migraciones RLS-first ya están listos para conectar la base
-real: al configurar las variables de entorno, la capa de datos apunta a Supabase.
+Toda la data vive en Supabase, jamás en el código. La capa de acceso
+(`src/lib/data.ts`, `server-only`) es la única fuente de verdad y lee siempre
+desde la base. La data de demo (nombres dominicanos, montos RD$ reales) se
+siembra por migración: `supabase/migrations/0002_schema_seed.sql`.
+
+### Poner en marcha con datos reales
+
+1. **Aplicar migraciones** en tu proyecto Supabase (SQL Editor):
+   pega y corre `0001_init.sql` y luego `0002_schema_seed.sql`.
+2. **Variables de entorno** (local en `.env.local`, y en Vercel):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` (marcar **Sensitive** en Vercel)
+3. Las páginas son `dynamic` y leen en el servidor respetando RLS. Sin las
+   variables, renderizan un estado vacío elegante (nunca crashean).
+
+### Server actions (Clientes / Órdenes)
+
+`src/app/actions/*` — cada acción arranca con `requireActiveUser()` /
+`requireAdmin()`, aplica rate limiting por usuario y valida por whitelist
+(tipos, montos, fechas, UUID) antes de tocar la base.
 
 ---
 

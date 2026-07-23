@@ -1,13 +1,18 @@
-// Cliente de navegador — solo anon key + URL (públicas).
-// Nunca expone service_role. Se instancia perezosamente para no romper
-// el build cuando las variables aún no están configuradas (modo demo).
+"use client";
 
-export function getSupabaseBrowserConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return {
-    configured: Boolean(url && anonKey),
-    url: url ?? "",
-    anonKey: anonKey ?? "",
-  };
+import { createBrowserClient } from "@supabase/ssr";
+
+/** ¿Están configuradas las variables públicas de Supabase? */
+export function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
+/** Cliente de navegador — solo anon key + URL (públicas). */
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 }
