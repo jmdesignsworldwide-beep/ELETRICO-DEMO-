@@ -306,6 +306,20 @@ export interface RegisterSummary {
   expectedCash: number;
 }
 
+export interface FinanceReport {
+  monthly: { month: string; ingresos: number; gastos: number }[];
+  totals: { ingresos: number; gastos: number; ganancia: number };
+  monthComparison: { current: number; previous: number; pct: number };
+  incomeByService: { name: string; value: number }[];
+  serviceProfit: { name: string; income: number; cost: number; margin: number }[];
+  incomeByTech: { name: string; value: number }[];
+  expensesByCategory: { name: string; value: number }[];
+  ordersByStatus: { status: string; label: string; count: number }[];
+  quoteConversion: { enviadas: number; aprobadas: number; rechazadas: number; rate: number };
+  avgCloseByService: { name: string; days: number }[];
+  mostUsedMaterials: { name: string; qty: number }[];
+}
+
 export interface ActivityEvent {
   id: string;
   type: "orden" | "cliente" | "cotizacion" | "factura" | "pago" | "inventario";

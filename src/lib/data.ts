@@ -6,6 +6,7 @@ import {
   isSupabaseConfigured,
   isServiceConfigured,
 } from "./supabase/server";
+import { serviceTypeLabel, orderStatusLabel } from "./labels";
 import type {
   Client,
   Technician,
@@ -596,6 +597,133 @@ export async function getRecurringExpenses(): Promise<import("./types").Recurrin
     id: r.id, category: r.category, description: r.description,
     amount: Number(r.amount), paymentMethod: r.payment_method, active: r.active,
   }));
+}
+
+// ── Finanzas y estadísticas (ERP) — todo agregado en el servidor ──
+export async function getFinanceReport(): Promise<import("./types").FinanceReport> {
+  const empty: import("./types").FinanceReport = {
+    monthly: [], totals: { ingresos: 0, gastos: 0, ganancia: 0 },
+    monthComparison: { current: 0, previous: 0, pct: 0 },
+    incomeByService: [], serviceProfit: [], incomeByTech: [], expensesByCategory: [],
+    ordersByStatus: [], quoteConversion: { enviadas: 0, aprobadas: 0, rechazadas: 0, rate: 0 },
+    avgCloseByService: [], mostUsedMaterials: [],
+  };
+  if (!isSupabaseConfigured()) return empty;
+  const supabase = createServerSupabase();
+
+  const [
+    { data: monthly }, { data: orders }, { data: expenses }, { data: quotes },
+    { data: mats }, { data: techs },
+  ] = await Promise.all([
+    supabase.from("monthly_stats").select("*").order("ord"),
+    supabase.from("service_orders").select("service_type, status, total, created_at, closed_at, technician_ids"),
+    supabase.from("expenses").select("category, amount"),
+    supabase.from("quotes").select("status"),
+    supabase.from("order_materials").select("name, qty_used, order_id, inventory(cost_price)"),
+    supabase.from("technicians").select("id, name"),
+  ]);
+
+  const st = (svc: string) => serviceTypeLabel[svc as keyof typeof serviceTypeLabel] ?? svc;
+  const REALIZED = ["completada", "facturada", "pagada"];
+
+  // Serie mensual + comparación mes contra mes.
+  const monthlyMapped = (monthly ?? []).map((m) => ({
+    month: m.month, ingresos: Number(m.ingresos ?? 0), gastos: Number(m.gastos ?? 0),
+  }));
+  const totalIng = monthlyMapped.reduce((s, m) => s + m.ingresos, 0);
+  const totalGas = monthlyMapped.reduce((s, m) => s + m.gastos, 0);
+  const cur = monthlyMapped.at(-1);
+  const prev = monthlyMapped.at(-2);
+  const curNet = cur ? cur.ingresos - cur.gastos : 0;
+  const prevNet = prev ? prev.ingresos - prev.gastos : 0;
+  const pct = prevNet > 0 ? Math.round(((curNet - prevNet) / prevNet) * 1000) / 10 : 0;
+
+  // Ingresos y ganancia por tipo de servicio.
+  const realized = (orders ?? []).filter((o) => REALIZED.includes(o.status));
+  const incomeSvc: Record<string, number> = {};
+  for (const o of realized) incomeSvc[o.service_type] = (incomeSvc[o.service_type] ?? 0) + Number(o.total);
+
+  // Costo de materiales por tipo de servicio (para margen).
+  const orderTypeById = new Map<string, string>();
+  // Necesitamos order_id → service_type; re-consulta ligera con id incluido.
+  const { data: ordIds } = await supabase.from("service_orders").select("id, service_type");
+  for (const o of ordIds ?? []) orderTypeById.set(o.id, o.service_type);
+  const costSvc: Record<string, number> = {};
+  for (const m of mats ?? []) {
+    const svc = orderTypeById.get(m.order_id);
+    if (!svc) continue;
+    const cost = Number((m.inventory as unknown as { cost_price: number } | null)?.cost_price ?? 0) * Number(m.qty_used ?? 0);
+    costSvc[svc] = (costSvc[svc] ?? 0) + cost;
+  }
+  const incomeByService = Object.entries(incomeSvc).map(([k, v]) => ({ name: st(k), value: v })).sort((a, b) => b.value - a.value);
+  const serviceProfit = Object.entries(incomeSvc).map(([k, income]) => {
+    const cost = costSvc[k] ?? 0;
+    return { name: st(k), income, cost, margin: income > 0 ? Math.round(((income - cost) / income) * 100) : 0 };
+  }).sort((a, b) => (b.income - b.cost) - (a.income - a.cost));
+
+  // Ingresos por técnico (repartido entre asignados).
+  const techName = new Map((techs ?? []).map((t) => [t.id, t.name]));
+  const incomeTech: Record<string, number> = {};
+  for (const o of realized) {
+    const ids = (o.technician_ids ?? []) as string[];
+    if (!ids.length) continue;
+    const share = Number(o.total) / ids.length;
+    for (const id of ids) incomeTech[id] = (incomeTech[id] ?? 0) + share;
+  }
+  const incomeByTech = Object.entries(incomeTech)
+    .map(([id, v]) => ({ name: techName.get(id) ?? "—", value: Math.round(v) }))
+    .sort((a, b) => b.value - a.value);
+
+  // Gastos por categoría.
+  const catLabels: Record<string, string> = {
+    combustible: "Combustible", transporte: "Transporte", herramientas: "Herramientas",
+    materiales_menores: "Materiales menores", nomina: "Nómina", alquiler: "Alquiler",
+    servicios: "Servicios", mantenimiento_vehiculo: "Mant. vehículo", otros: "Otros",
+  };
+  const expCat: Record<string, number> = {};
+  for (const e of expenses ?? []) expCat[e.category] = (expCat[e.category] ?? 0) + Number(e.amount);
+  const expensesByCategory = Object.entries(expCat).map(([k, v]) => ({ name: catLabels[k] ?? k, value: v })).sort((a, b) => b.value - a.value);
+
+  // Órdenes por estado.
+  const statusCount: Record<string, number> = {};
+  for (const o of orders ?? []) statusCount[o.status] = (statusCount[o.status] ?? 0) + 1;
+  const ordersByStatus = Object.entries(statusCount).map(([status, count]) => ({
+    status, label: orderStatusLabel[status as keyof typeof orderStatusLabel] ?? status, count,
+  }));
+
+  // Conversión de cotizaciones.
+  const qc = { enviadas: 0, aprobadas: 0, rechazadas: 0 };
+  for (const q of quotes ?? []) {
+    if (q.status === "enviada") qc.enviadas++;
+    else if (q.status === "aprobada") qc.aprobadas++;
+    else if (q.status === "rechazada") qc.rechazadas++;
+  }
+  const qcTotal = qc.enviadas + qc.aprobadas + qc.rechazadas;
+  const quoteConversion = { ...qc, rate: qcTotal > 0 ? Math.round((qc.aprobadas / qcTotal) * 100) : 0 };
+
+  // Tiempo promedio de cierre por tipo de servicio.
+  const closeAcc: Record<string, { total: number; n: number }> = {};
+  for (const o of orders ?? []) {
+    if (!o.closed_at) continue;
+    const d = (new Date(o.closed_at).getTime() - new Date(o.created_at).getTime()) / 86_400_000;
+    if (d < 0) continue;
+    const acc = closeAcc[o.service_type] ?? { total: 0, n: 0 };
+    acc.total += d; acc.n += 1; closeAcc[o.service_type] = acc;
+  }
+  const avgCloseByService = Object.entries(closeAcc).map(([k, v]) => ({ name: st(k), days: Math.round((v.total / v.n) * 10) / 10 })).sort((a, b) => b.days - a.days);
+
+  // Materiales más usados.
+  const matAgg: Record<string, number> = {};
+  for (const m of mats ?? []) matAgg[m.name] = (matAgg[m.name] ?? 0) + Number(m.qty_used ?? 0);
+  const mostUsedMaterials = Object.entries(matAgg).map(([name, qty]) => ({ name, qty })).sort((a, b) => b.qty - a.qty).slice(0, 8);
+
+  return {
+    monthly: monthlyMapped,
+    totals: { ingresos: totalIng, gastos: totalGas, ganancia: totalIng - totalGas },
+    monthComparison: { current: curNet, previous: prevNet, pct },
+    incomeByService, serviceProfit, incomeByTech, expensesByCategory,
+    ordersByStatus, quoteConversion, avgCloseByService, mostUsedMaterials,
+  };
 }
 
 export async function getActivityFeed(): Promise<ActivityEvent[]> {
