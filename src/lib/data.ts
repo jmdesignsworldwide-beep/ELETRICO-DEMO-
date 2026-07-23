@@ -218,6 +218,135 @@ export async function getInventoryReport() {
   return { items, costValue, saleValue, lowStock, mostUsed };
 }
 
+// ── Suplidores + Órdenes de compra ──────────────────────────────
+const PO_OWED = ["enviada", "recibida_parcial", "recibida"];
+
+export async function getSuppliers(): Promise<import("./types").Supplier[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const [{ data: sups }, { data: pos }, { data: items }] = await Promise.all([
+    supabase.from("suppliers").select("*").order("name"),
+    supabase.from("purchase_orders").select("id, supplier_id, status"),
+    supabase.from("purchase_order_items").select("po_id, qty_ordered, unit_price"),
+  ]);
+  const totalByPo = new Map<string, number>();
+  for (const it of items ?? []) {
+    totalByPo.set(it.po_id, (totalByPo.get(it.po_id) ?? 0) + Number(it.qty_ordered) * Number(it.unit_price));
+  }
+  return (sups ?? []).map((s) => {
+    const supPos = (pos ?? []).filter((p) => p.supplier_id === s.id);
+    const pending = supPos
+      .filter((p) => PO_OWED.includes(p.status))
+      .reduce((sum, p) => sum + (totalByPo.get(p.id) ?? 0), 0);
+    return {
+      id: s.id, name: s.name, rnc: s.rnc ?? undefined, contact: s.contact ?? undefined,
+      phone: s.phone ?? undefined, email: s.email ?? undefined, address: s.address ?? undefined,
+      paymentTerms: s.payment_terms ?? undefined,
+      purchaseCount: supPos.length, pending,
+    };
+  });
+}
+
+export async function getSupplier(id: string): Promise<import("./types").SupplierDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: s } = await supabase.from("suppliers").select("*").eq("id", id).single();
+  if (!s) return null;
+  const [{ data: prices }, { data: pos }, { data: items }] = await Promise.all([
+    supabase.from("supplier_prices").select("*, inventory(name, sku)").eq("supplier_id", id),
+    supabase.from("purchase_orders").select("id, number, status, created_at").eq("supplier_id", id).order("created_at", { ascending: false }),
+    supabase.from("purchase_order_items").select("po_id, qty_ordered, unit_price"),
+  ]);
+  const totalByPo = new Map<string, number>();
+  for (const it of items ?? []) totalByPo.set(it.po_id, (totalByPo.get(it.po_id) ?? 0) + Number(it.qty_ordered) * Number(it.unit_price));
+
+  return {
+    id: s.id, name: s.name, rnc: s.rnc ?? undefined, contact: s.contact ?? undefined,
+    phone: s.phone ?? undefined, email: s.email ?? undefined, address: s.address ?? undefined,
+    paymentTerms: s.payment_terms ?? undefined,
+    purchaseCount: (pos ?? []).length,
+    pending: (pos ?? []).filter((p) => PO_OWED.includes(p.status)).reduce((sum, p) => sum + (totalByPo.get(p.id) ?? 0), 0),
+    prices: (prices ?? []).map((p) => {
+      const inv = p.inventory as unknown as { name: string; sku: string } | null;
+      return {
+        id: p.id, inventoryId: p.inventory_id,
+        materialName: inv?.name ?? "", sku: inv?.sku ?? "",
+        price: Number(p.price ?? 0), updatedAt: p.updated_at,
+      };
+    }).sort((a, b) => a.materialName.localeCompare(b.materialName)),
+    purchaseOrders: (pos ?? []).map((p) => ({
+      id: p.id, number: p.number, status: p.status,
+      total: totalByPo.get(p.id) ?? 0, createdAt: p.created_at,
+    })),
+  };
+}
+
+export async function getPurchaseOrders(): Promise<import("./types").PurchaseOrder[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const [{ data: pos }, { data: items }] = await Promise.all([
+    supabase.from("purchase_orders").select("*, suppliers(name)").order("created_at", { ascending: false }),
+    supabase.from("purchase_order_items").select("po_id, qty_ordered, unit_price"),
+  ]);
+  const agg = new Map<string, { total: number; count: number }>();
+  for (const it of items ?? []) {
+    const cur = agg.get(it.po_id) ?? { total: 0, count: 0 };
+    cur.total += Number(it.qty_ordered) * Number(it.unit_price);
+    cur.count += 1;
+    agg.set(it.po_id, cur);
+  }
+  return (pos ?? []).map((p) => ({
+    id: p.id, number: p.number, supplierId: p.supplier_id,
+    supplierName: (p.suppliers as unknown as { name: string } | null)?.name ?? "Suplidor",
+    status: p.status, total: agg.get(p.id)?.total ?? 0, itemCount: agg.get(p.id)?.count ?? 0,
+    createdAt: p.created_at, receivedAt: p.received_at ?? undefined,
+  }));
+}
+
+export async function getPurchaseOrder(id: string): Promise<import("./types").PurchaseOrderDetail | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: p } = await supabase
+    .from("purchase_orders")
+    .select("*, suppliers(name, phone)")
+    .eq("id", id).single();
+  if (!p) return null;
+  const { data: items } = await supabase.from("purchase_order_items").select("*").eq("po_id", id).order("created_at");
+  const mapped = (items ?? []).map((it) => ({
+    id: it.id, inventoryId: it.inventory_id, name: it.name,
+    qtyOrdered: it.qty_ordered ?? 0, qtyReceived: it.qty_received ?? 0,
+    unitPrice: Number(it.unit_price ?? 0), discrepancyNote: it.discrepancy_note ?? undefined,
+  }));
+  const sup = p.suppliers as unknown as { name: string; phone: string } | null;
+  return {
+    id: p.id, number: p.number, supplierId: p.supplier_id, supplierName: sup?.name ?? "Suplidor",
+    supplierPhone: sup?.phone ?? undefined, status: p.status, notes: p.notes ?? undefined,
+    itemCount: mapped.length, total: mapped.reduce((s, i) => s + i.qtyOrdered * i.unitPrice, 0),
+    createdAt: p.created_at, receivedAt: p.received_at ?? undefined, items: mapped,
+  };
+}
+
+export async function getPriceComparison(): Promise<import("./types").PriceComparison[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const { data } = await supabase
+    .from("supplier_prices")
+    .select("price, inventory(id, name, sku), suppliers(id, name)");
+  const byMaterial = new Map<string, import("./types").PriceComparison>();
+  for (const row of data ?? []) {
+    const inv = row.inventory as unknown as { id: string; name: string; sku: string } | null;
+    const sup = row.suppliers as unknown as { id: string; name: string } | null;
+    if (!inv || !sup) continue;
+    const entry = byMaterial.get(inv.id) ?? { inventoryId: inv.id, materialName: inv.name, sku: inv.sku, offers: [] };
+    entry.offers.push({ supplierId: sup.id, supplierName: sup.name, price: Number(row.price ?? 0) });
+    byMaterial.set(inv.id, entry);
+  }
+  return Array.from(byMaterial.values())
+    .map((m) => ({ ...m, offers: m.offers.sort((a, b) => a.price - b.price) }))
+    .filter((m) => m.offers.length > 1)
+    .sort((a, b) => a.materialName.localeCompare(b.materialName));
+}
+
 export async function getQuotes(): Promise<Quote[]> {
   if (!isSupabaseConfigured()) return [];
   const supabase = createServerSupabase();
