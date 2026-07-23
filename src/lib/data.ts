@@ -599,6 +599,62 @@ export async function getRecurringExpenses(): Promise<import("./types").Recurrin
   }));
 }
 
+// ── Capa de acceso (Tanda 15) ───────────────────────────────────
+export interface SessionContext {
+  userId: string;
+  fullName: string;
+  isOwner: boolean;
+  demo: { active: boolean; expiresAt: string | null; daysRemaining: number | null; expired: boolean } | null;
+}
+
+export async function getSessionContext(): Promise<SessionContext | null> {
+  if (!isSupabaseConfigured()) return null;
+  const supabase = createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase
+    .from("profiles").select("full_name, is_owner, active").eq("id", user.id).maybeSingle();
+  if (!profile || !profile.active) return null;
+
+  let demo: SessionContext["demo"] = null;
+  if (!profile.is_owner) {
+    const { data: d } = await supabase
+      .from("demo_accounts").select("active, expires_at").eq("user_id", user.id).maybeSingle();
+    if (d) {
+      const daysRemaining = d.expires_at
+        ? Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 86_400_000)
+        : null;
+      const expired = d.active === false || (d.expires_at !== null && new Date(d.expires_at).getTime() <= Date.now());
+      demo = { active: d.active, expiresAt: d.expires_at, daysRemaining, expired };
+    }
+  }
+  return { userId: user.id, fullName: profile.full_name, isOwner: Boolean(profile.is_owner), demo };
+}
+
+export interface DemoAccountRow {
+  id: string;
+  username: string;
+  expiresAt: string | null;
+  active: boolean;
+  createdAt: string;
+  daysRemaining: number | null;
+  status: "activa" | "por_vencer" | "expirada" | "revocada";
+}
+
+export async function getDemoAccounts(): Promise<DemoAccountRow[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  const { data } = await supabase.from("demo_accounts").select("*").order("created_at", { ascending: false });
+  return (data ?? []).map((d) => {
+    const daysRemaining = d.expires_at ? Math.ceil((new Date(d.expires_at).getTime() - Date.now()) / 86_400_000) : null;
+    let status: DemoAccountRow["status"] = "activa";
+    if (!d.active) status = "revocada";
+    else if (d.expires_at && new Date(d.expires_at).getTime() <= Date.now()) status = "expirada";
+    else if (daysRemaining !== null && daysRemaining <= 3) status = "por_vencer";
+    return { id: d.id, username: d.username, expiresAt: d.expires_at, active: d.active, createdAt: d.created_at, daysRemaining, status };
+  });
+}
+
 // ── Portafolio de trabajos ──────────────────────────────────────
 export async function getPortfolioWorks(opts?: { onlyVisible?: boolean }): Promise<import("./types").PortfolioWork[]> {
   if (!isSupabaseConfigured()) return [];
