@@ -306,6 +306,23 @@ export interface RegisterSummary {
   expectedCash: number;
 }
 
+export interface PortfolioWork {
+  id: string;
+  orderId?: string;
+  orderNumber?: string;
+  technicianId?: string;
+  technicianName?: string;
+  title: string;
+  description?: string;
+  category: string;
+  categoryLabel: string;
+  beforeUrl?: string;
+  afterUrl?: string;
+  favorite: boolean;
+  visible: boolean;
+  createdAt: string;
+}
+
 export interface FinanceReport {
   monthly: { month: string; ingresos: number; gastos: number }[];
   totals: { ingresos: number; gastos: number; ganancia: number };

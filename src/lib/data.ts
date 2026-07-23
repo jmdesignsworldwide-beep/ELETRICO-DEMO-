@@ -599,6 +599,45 @@ export async function getRecurringExpenses(): Promise<import("./types").Recurrin
   }));
 }
 
+// ── Portafolio de trabajos ──────────────────────────────────────
+export async function getPortfolioWorks(opts?: { onlyVisible?: boolean }): Promise<import("./types").PortfolioWork[]> {
+  if (!isSupabaseConfigured()) return [];
+  const supabase = createServerSupabase();
+  let query = supabase
+    .from("portfolio_works")
+    .select("*, service_orders(number), technicians(name)")
+    .order("favorite", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (opts?.onlyVisible) query = query.eq("visible", true);
+  const { data } = await query;
+
+  const admin = isServiceConfigured() ? createAdminSupabase() : null;
+  async function sign(path: string | null): Promise<string | undefined> {
+    if (!path || !admin) return undefined;
+    try {
+      const { data: s } = await admin.storage.from("portfolio-photos").createSignedUrl(path, 600);
+      return s?.signedUrl;
+    } catch { return undefined; }
+  }
+
+  return Promise.all((data ?? []).map(async (w) => ({
+    id: w.id,
+    orderId: w.order_id ?? undefined,
+    orderNumber: (w.service_orders as unknown as { number: string } | null)?.number ?? undefined,
+    technicianId: w.technician_id ?? undefined,
+    technicianName: (w.technicians as unknown as { name: string } | null)?.name ?? undefined,
+    title: w.title,
+    description: w.description ?? undefined,
+    category: w.category,
+    categoryLabel: serviceTypeLabel[w.category as keyof typeof serviceTypeLabel] ?? w.category,
+    beforeUrl: await sign(w.before_path),
+    afterUrl: await sign(w.after_path),
+    favorite: w.favorite,
+    visible: w.visible,
+    createdAt: w.created_at,
+  })));
+}
+
 // ── Finanzas y estadísticas (ERP) — todo agregado en el servidor ──
 export async function getFinanceReport(): Promise<import("./types").FinanceReport> {
   const empty: import("./types").FinanceReport = {
