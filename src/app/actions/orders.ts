@@ -119,6 +119,38 @@ export async function updateOrderStatusAction(id: string, status: string): Promi
   }
 }
 
+/** Reprogramar una orden (arrastrar en el calendario). Deja bitácora. */
+export async function rescheduleOrderAction(id: string, newDate: string): Promise<ActionResult> {
+  try {
+    const user = await requireActiveUser();
+    enforceRateLimit(`order:reschedule:${user.id}`);
+    if (!UUID.test(id)) return { ok: false, error: "ID inválido." };
+    if (isNaN(Date.parse(newDate))) return { ok: false, error: "Fecha inválida." };
+
+    const supabase = createServerSupabase();
+    // RLS: solo admin o técnico asignado puede actualizar la orden.
+    const { data: order } = await supabase
+      .from("service_orders").select("number, scheduled_date").eq("id", id).single();
+    if (!order) return { ok: false, error: "Orden no encontrada o sin acceso." };
+
+    const { error } = await supabase
+      .from("service_orders").update({ scheduled_date: newDate }).eq("id", id);
+    if (error) return { ok: false, error: "No se pudo reprogramar." };
+
+    await supabase.from("activity_log").insert({
+      actor_id: user.id, event_type: "orden", title: "Orden reprogramada",
+      detail: `${order.number} movida a ${new Date(newDate).toLocaleDateString("es-DO")}`,
+    });
+
+    revalidatePath("/calendario");
+    revalidatePath("/ordenes");
+    revalidatePath(`/ordenes/${id}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error inesperado." };
+  }
+}
+
 /** Registrar material usado en una orden → descuenta inventario y deja bitácora. */
 export async function registerMaterialAction(
   orderId: string,
